@@ -4,7 +4,7 @@
 
 This repository is a fork of **ios-sweet**. ios-sweet builds Apple's open-source XNU kernel (xnu-8796, the iOS 16 generation) for the Redmi Note 10 Pro (`sweet`, SM7150), then runs the **unmodified iOS 16.7.16 (20H392) userland of the iPhone X** on it: launchd, the system daemons, backboardd, SpringBoard and the stock apps. On `sweet` it reaches the iOS home screen with touch, buttons, all eight cores and USB networking.
 
-This fork moves that work to `apollo`. The boot shim, the device-tree generator and the touch and button drivers have been retargeted. **apollo has not booted to iOS yet.** The section [apollo port status](#apollo-port-status) lists what has changed and what is still unverified.
+This fork moves that work to `apollo`. As of **2026-10-23** the Mi 10T boots XNU on six cores and reaches **iOS Setup**. Power, volume-up and volume-down work. Touch is the last missing input: SPI to the touch chip works and its ID reads back, and the firmware loader is written but not yet tested. The section [apollo port status](#apollo-port-status) has the details.
 
 > Experimental bring-up, not a usable phone OS. Apple's security model is mostly switched off, and installing the iOS root **erases Android's `userdata` partition**.
 
@@ -12,12 +12,14 @@ This fork moves that work to `apollo`. The boot shim, the device-tree generator 
 
 | Area | State on apollo |
 | --- | --- |
-| Boot shim | GIC, PSCI, IMEM restart reason and timer PPIs retargeted to SM8250 (virtual timer INTID 27, physical timer INTID 30, restart reason at `0x146bf65c`). Builds cleanly |
-| Device tree (ADT) | `tools/mkadt.py`: 1080×2400 framebuffer at `0x9c000000` (`cont_splash_region`, 35 MiB), virtual timer INTID 27, 4 GiB from `0x1_00000000`, root compatible gains `xiaomi,apollo` / `qcom,sm8250`. `xiaomi,sweet` stays because `SweetPlatformExpert` (patch 0016) matches only that string |
-| Touch | **Patch 0082**: Novatek NT36675 over GENI SPI (`spi@994000`, reset on TLMM GPIO 8, IRQ on GPIO 9) replaces sweet's Goodix GT9896 I²C driver. It uses full-duplex FIFO transfers and NT36xxx read framing, starts after `sweettouchdelay` seconds and logs the first raw report. Builds in the series; **not tested on the phone** |
-| Buttons | **Patch 0082**: power and volume-down on the PON block as on sweet. Volume-up tries sweet's PMIC GPIO (PPID `0x4c1`) and then `0x1c1`, and `sweetvolup=PPID` selects any other PMIC GPIO without a rebuild. **Not tested on the phone** |
-| Kernel log | The first log pull from apollo (2026-10-23) contains only zero bytes, so the kernel did not write its persistent log. The cause is not known yet |
-| Not ported yet | Display power (0079), USB device mode / Ethernet (0072–0077), battery, SMP layout (SM8250 has 4×A55 + 4×A77, sweet had 6×A55 + 2×A76), the `/memory` size check |
+| Boot | Stock bootloader → `fastboot boot` shim → XNU → iOS 16.7 userland from `userdata` → **Setup (Siri page) on screen**. Kernel log readable from recovery |
+| Boot shim | GIC, PSCI, IMEM restart reason and timer PPIs retargeted to SM8250 (virtual timer INTID 27, physical timer INTID 30, restart reason at `0x146bf65c`) |
+| Device tree (ADT) | `tools/mkadt.py`: 1080×2400 framebuffer at `0x9c000000` (35 MiB splash region), virtual timer INTID 27, 4 GiB from `0x1_00000000`, root compatible gains `xiaomi,apollo` / `qcom,sm8250` (`xiaomi,sweet` stays: `SweetPlatformExpert` matches it). `--touch-fw` embeds the touch firmware |
+| CPU | `cpus=6` boots and is noticeably faster than `cpus=1`; `cpus=8` untested (SM8250: 4×A55 + 4×A77) |
+| Buttons | **Working** (0082, 0084): power and volume-down on the PON block, volume-up on PM8150 GPIO6 (PPID `0x0c5`), probed automatically; `sweetvolup=0xPPID` overrides |
+| Touch | **In progress** (0082–0093), Novatek NT36675 on QUP0 SE4 SPI (`spi@990000`), reset GPIO 38, IRQ GPIO 39 (rising edge). Working: the GPIO pins (south TLMM tile), SE4 clocks (GCC votes, DFS level 0 = 19.2 MHz), SPI pin mux (GPIO 8–11 → `qup4`), the SPI engine setup and the chip-ID read (`0e 00 00 72 66 03` = NT36675). Written, **not yet tested**: the firmware download (0093). The chip has no flash, so its firmware (`novatek_nt36675_j3s_fw01.bin`, from Xiaomi's fastboot ROM `vendor` image, not in git) must be loaded at every boot |
+| Display | Kernel text and the iOS GUI on the bootloader framebuffer. A bottom band of the Setup page is drawn red (unexplained) |
+| Not ported yet | Display power (0079), USB device mode / Ethernet (0072–0077), battery, the `/memory` size check |
 
 The next steps and the full engineering history are in [`NOTES.md`](NOTES.md).
 
@@ -98,13 +100,13 @@ ipsw img4 im4p extract research/ipsw-x/dt/Firmware/all_flash/DeviceTree.d22ap.im
 Needs `aarch64-linux-gnu-gcc` and `mkbootimg`.
 
 ```sh
-python3 tools/mkadt.py shim/out/apollo.adt --highmem
+python3 tools/mkadt.py shim/out/apollo.adt --highmem --touch-fw research/apollo-fw/novatek_nt36675_j3s_fw01.bin
 python3 tools/mkpayload.py xnu/out/kernel.development.sweet shim/out/apollo.adt shim/out/payload.bin \
-    --cmdline 'debug=0xc serial=3 cpus=1 keepsyms=1 -enable_kprintf_spam -noprogress rd=ufsroot0 unentitled_ios_sim_launch=1 ignition_level=1 wdt_test=no_user_checkin ufsrw=1 rootrw=1 launchd_unsecure_cache=1 wdt=-1 sweettouch_debug=1'
+    --cmdline 'debug=0xc serial=3 cpus=6 keepsyms=1 -enable_kprintf_spam -noprogress rd=ufsroot0 unentitled_ios_sim_launch=1 ignition_level=1 wdt_test=no_user_checkin ufsrw=1 rootrw=1 launchd_unsecure_cache=1 wdt=-1 sweetfb_noconsole=1 sweettouchstage=4 sweettouchdelay=20 sweettouch_debug=1 ufslogsecs=1'
 shim/build.sh ../shim/out/payload.bin      # -> shim/out/shim-boot.img
 ```
 
-On apollo, start with `cpus=1` until the SMP layout has been checked.
+The touch firmware comes from Xiaomi's fastboot ROM. On Linux: run `simg2img super.img super.raw`, then `tools/lpextract.py super.raw vendor vendor.img`, mount `vendor.img` read-only and copy `firmware/novatek_nt36675_j3s_fw01.bin` to `research/apollo-fw/`. `research/` is in `.gitignore`. Without `--touch-fw`, the kernel boots normally and touch stops before the firmware download.
 
 | Boot-arg | Effect |
 | --- | --- |
@@ -114,7 +116,11 @@ On apollo, start with `cpus=1` until the SMP layout has been checked.
 | `wdt=-1 wdt_test=no_user_checkin` | No hardware watchdog |
 | `sweetfb_noconsole=1`, `sweetfb_hz=30` | Stop drawing kernel text over the GUI; panel copy rate |
 | `sweettouch=0`, `sweetkeys=0` | Disable the touch or button driver |
+| `sweettouchstage=1..4` | Touch bring-up depth: 1 reads the pins, 2 reads the SPI engine, 3 pulses reset, 4 sets up clocks, pins and SPI, reads the chip ID, loads the firmware and polls for reports (default 1) |
 | `sweettouchdelay=S`, `sweettouch_debug=1` | Touch start delay in seconds (default 45); log every raw report |
+| `sweettouchfw=0`, `sweettouchmux=0` | Skip the firmware download or the SPI pin mux |
+| `sweettouchse=`, `sweettouchrst=`, `sweettouchirq=`, `sweettouchtlmm=`, `sweettouchdiv=`, `sweettouchbuf=` | Override the SPI engine address, reset/IRQ GPIOs, TLMM tile, SPI clock divider (default 4 = 4.8 MHz) and event buffer address |
+| `ufslogsecs=N` | Persistent-log flush interval in seconds (use 1 when chasing hangs) |
 | `sweetvolup=0xPPID` | PMIC GPIO peripheral for volume-up (SID << 8 \| peripheral) |
 | `sweetusb=2` | USB device mode, CDC-ECM Ethernet and the live log |
 
@@ -142,7 +148,7 @@ The driver lines start with `SWEET ...`, and crash reports start with `CRASH nam
 | Path | What |
 | --- | --- |
 | `shim/` | Bare-metal boot shim (C + asm) packed as an Android boot.img v2 |
-| `xnu/patches/` | The XNU patch series (0001–0082, applied in order by CI) plus staging scripts for libpthread, HFS and BearSSL |
+| `xnu/patches/` | The XNU patch series (0001–0093, applied in order by CI) plus staging scripts for libpthread, HFS and BearSSL |
 | `.github/workflows/xnu.yml` | `validate` (Ubuntu, seconds), then the kernel `build` (macOS) |
 | `tools/validate-repo.py` | Patch-series and script checks (numbering, hunk headers, replay of series-created files) |
 | `tools/mkadt.py` | Apple Device Tree from the board's MMIO layout and the iPhone X identity |
@@ -152,6 +158,7 @@ The driver lines start with `SWEET ...`, and crash reports start with `CRASH nam
 | `tools/sweet-crash.py` | Symbolicate console crash reports |
 | `tools/xnu-cc.py` | Local single-file compile check from a CI log |
 | `tools/qemu-sweet.py` | QEMU test boots with framebuffer text decoding |
+| `tools/lpextract.py` | Extract one partition (e.g. `vendor`) from a raw Android `super` image |
 | `tools/adt.py`, `remotezip.py`, `unpack_bootv2.py`, `sparsediff.py`, `check-exports.py` | Helpers |
 | `site/` | The project website |
 | `NOTES.md` | Engineering log: every boot, crash and decision, hardware facts, the active handoff |
@@ -182,7 +189,11 @@ Not in git: partition backups, live device trees, recovery images, Apple firmwar
 | 0070–0071 | `pid_hibernate` syscall (leaving apps); edge-swipe flags on touches (home gesture) |
 | 0072–0077 | USB: DWC3 probe, ep0, VBUS override, CDC-ECM Ethernet `ue0`, RX into cluster mbufs, live log over UDP |
 | 0078–0081 | All eight cores; display power off/on; network route/address trace; Ethernet link state |
-| **0082** | **apollo: Novatek NT36675 SPI touch; volume-up PPID fallback and `sweetvolup=`** |
+| **0082** | **apollo:** Novatek NT36675 SPI touch driver (first version); volume-up PPID fallback and `sweetvolup=` |
+| **0083–0087** | **apollo:** touch bring-up in logged stages (`sweettouchstage`); volume-up probe (finds PM8150 GPIO6); TLMM tile search; SPI engine firmware/clock logging; selectable SE |
+| **0088–0089** | **apollo:** touch driver from the live device tree and Xiaomi's source: SE4 `0x990000`, GPIO 38/39, NT36xxx SPI framing, chip-ID read, event buffer `0x22D00` |
+| **0090–0092** | **apollo:** SE4 clock votes in GCC (hardware-gated branches accepted); SPI pin mux GPIO 8–11 → `qup4` |
+| **0093** | **apollo:** NT36675 firmware host download with hardware CRC (firmware from the ADT) |
 
 ## Key hardware facts
 
@@ -191,8 +202,9 @@ Not in git: partition backups, live device trees, recovery images, Apple firmwar
 | GIC | GICv3, `0x17a00000` / `0x17a60000` | same addresses |
 | Virtual timer | INTID 19 (PPI 3) | INTID 27 (PPI 11) |
 | Framebuffer | `0x9c000000`, 1080×2400 | `0x9c000000`, 1080×2400, 35 MiB splash region |
-| Touch | Goodix GT9896, I²C `0x5d`, QUP SE7 `0xa84000` | Novatek NT36675, SPI, `0x994000`, GPIO 8 reset / 9 IRQ |
-| Volume-up | PM6150L GPIO2 (PPID `0x4c1`) | unconfirmed (`0x1c1` fallback, `sweetvolup=`) |
+| Touch | Goodix GT9896, I²C `0x5d`, QUP SE7 `0xa84000` | Novatek NT36675 (flashless), SPI on QUP0 SE4 `0x990000` (pins GPIO 8–11, `qup4`), reset GPIO 38 / IRQ GPIO 39 in the south TLMM tile `0x0f500000` |
+| Touch clocks | Left on by ABL | Off under `fastboot boot`: GCC `0x100000`, vote `0x52008` bits 6–9 and 14, SE4 RCG `0x174d0` (DFS) |
+| Volume-up | PM6150L GPIO2 (PPID `0x4c1`) | PM8150 GPIO6 (PPID `0x0c5`) |
 | CPUs | 6×A55 + 2×A76 | 4×A55 + 4×A77 |
 
 Both: PSCI through `smc`, 19.2 MHz timer, no pointer authentication, UFS host at `0x1d84000`. Details in [`NOTES.md`](NOTES.md).
