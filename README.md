@@ -16,7 +16,7 @@ This fork moves that work to `apollo`. The boot shim, the device-tree generator 
 | Device tree (ADT) | `tools/mkadt.py`: 1080×2400 framebuffer at `0x9c000000` (`cont_splash_region`, 35 MiB), virtual timer INTID 27, 4 GiB from `0x1_00000000`, root compatible gains `xiaomi,apollo` / `qcom,sm8250`. `xiaomi,sweet` stays because `SweetPlatformExpert` (patch 0016) matches only that string |
 | Touch | **Patch 0082**: Novatek NT36675 over GENI SPI (`spi@994000`, reset on TLMM GPIO 8, IRQ on GPIO 9) replaces sweet's Goodix GT9896 I²C driver. It uses full-duplex FIFO transfers and NT36xxx read framing, starts after `sweettouchdelay` seconds and logs the first raw report. Builds in the series; **not tested on the phone** |
 | Buttons | **Patch 0082**: power and volume-down on the PON block as on sweet. Volume-up tries sweet's PMIC GPIO (PPID `0x4c1`) and then `0x1c1`, and `sweetvolup=PPID` selects any other PMIC GPIO without a rebuild. **Not tested on the phone** |
-| Kernel log | The first log pull from apollo (`boot.txt.bin`, 2026-10-23) contains only zero bytes, so the kernel did not write its persistent log. The cause is not known yet |
+| Kernel log | The first log pull from apollo (2026-10-23) contains only zero bytes, so the kernel did not write its persistent log. The cause is not known yet |
 | Not ported yet | Display power (0079), USB device mode / Ethernet (0072–0077), battery, SMP layout (SM8250 has 4×A55 + 4×A77, sweet had 6×A55 + 2×A76), the `/memory` size check |
 
 The next steps and the full engineering history are in [`NOTES.md`](NOTES.md).
