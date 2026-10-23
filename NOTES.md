@@ -4,6 +4,8 @@
 
 ### >>> APOLLO PORT, UPDATE 2026-10-23 (read first; sweet history follows) <<<
 
+**BOOT 5 on apollo (0086 kernel run 39970150347, cpus=6, sweettouchstage=4, log `logs/apollo-boot5.txt`):** no hang. North tile found again; `step 3: reset pulse` -> `reset pulse done (gpio 8)` (GPIO writes in the north tile are fine). **SE 0x994000: `fw=0x203 proto=2` = UART firmware, not SPI** (hw0=0x20102864 hw1=0x20104800: 16-word FIFOs, 32-bit). Transfers: `SPI timeout done=0 tx=40 rx=0 status=0xf1`, then `SPI error irq=0x2`. So 0x994000 is not (or not configured as) the touch SPI SE. **0087**: `sweettouchse=PA` selects the SE; stage 4 refuses transfers unless protocol 1 (SPI). Next: find the novatek node's parent spi@ address and status in apollo's live DT.
+
 **User test (2026-10-23): `cpus=6` boots on apollo and is noticeably faster** (SM8250: cpu0-3 A55, cpu4-6 A77, cpu7 A77 prime; kernel treats them as one cluster). `cpus=8` not reported yet. If a hang appears, re-test with cpus=1 before blaming a driver.
 
 **BOOT 4 log (`logs/apollo-boot4.txt`):** volume-up = **PPID 0x0c5** (PM8150 GPIO6: `rt=0x1 mode=0 en=0x80 subtype=0x11 -> input`), presses toggle gpio(0xc5) 0x1 -> 0. Touch pins are in the **north TLMM tile 0x0f900000**: `rst cfg=0x1 io=0x1 irq cfg=0x1 io=0` (west/south read 0). cfg=0x1 = reset default (GPIO func, pull-down, 2 mA, input): ABL did NOT set up the touch pins. Reset reads high despite the pull-down (driven by the IC side?, guess). GENI SE 0x994000: `status=0 irq=0 tx-fifo=0 rx-fifo=0`, readable without hang. **0086**: stage 2 also logs SE FW revision/protocol, M clock cfg, clk-sel and FIFO HW params. Next: stage 3/4 on the 0085 kernel (`sweettouchstage=4 sweettouch_debug=1`).
