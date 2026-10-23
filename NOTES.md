@@ -4,6 +4,8 @@
 
 ### >>> APOLLO PORT, UPDATE 2026-10-23 (read first; sweet history follows) <<<
 
+**BOOT 1 on apollo (2026-10-23, kernel from CI run 39960680543, cpus=1, user photo):** XNU boots on SM8250 and the iOS userland on userdata runs (launchd execs softwareupdated/xpcproxy/siri embeddedspeech, backboardd IOKit matching for IOAcceleratorES, AKS selectors from suggestd/healthd/coreidvd/coreduetd). Last touch line: `SWEET TOUCH: apollo NT36675 @ SPI 0x994000 RST=gpio8 IRQ=gpio9`; "reset pulse done" never appeared; other processes logged a little longer, then the phone hung and rebooted (hard hang -> watchdog, guess). Suspect: first TLMM access at 0x0f100000 + 0x8000/0x9000 (tile or XPU-protected region; unverified). **0083** makes the touch driver staged (`sweettouchstage`, default 1 = TLMM reads only; 2 + GENI SE reads; 3 + reset pulse; 4 full) and logs before each access. Next: boot 0083 with stage 1, then raise. Also test the 0082 kernel with `sweettouch=0` to confirm touch is the cause.
+
 This fork (ios-apollo) retargets ios-sweet to the Xiaomi Mi 10T 5G (`apollo`, SM8250). Nothing below this block has been re-verified on apollo.
 
 **Observed:**
