@@ -8,3 +8,7 @@ shim/out/
 xnu/out/
 xnu/out-*/
 __pycache__/
+# build outputs and device logs: CI artifacts, boot images, pulled kernel logs
+logs/
+*.img
+*.simg

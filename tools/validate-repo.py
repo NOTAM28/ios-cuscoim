@@ -7,6 +7,9 @@ Checks:
   1. Patch sequence in xnu/patches/:
      - Sequential numbering starting at 0001 with no duplicates or gaps.
      - Patch files are non-empty and have valid unified diff markers.
+     - Every hunk's line counts match its @@ header.
+     - Files the series creates (bsd/dev/sweet_*.c, ...) replay through
+       all later patches with `patch -p1` (no XNU checkout needed).
   2. Python script syntax:
      - All tools/*.py compile cleanly via py_compile.
   3. Shell script syntax:
@@ -20,6 +23,90 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def green(text): return f"\033[92m{text}\033[0m"
 def red(text): return f"\033[91m{text}\033[0m"
 def bold(text): return f"\033[1m{text}\033[0m"
+
+
+HUNK = re.compile(r'^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@')
+
+
+def check_hunks(text):
+    """Line counts of every hunk must match its @@ header (hand-edited
+    patches break here first: `patch` reports "malformed patch")."""
+    errors = []
+    lines = text.split('\n')
+    i = 0
+    while i < len(lines):
+        m = HUNK.match(lines[i])
+        if not m:
+            i += 1
+            continue
+        start = i + 1
+        old = int(m.group(1) or 1)
+        new = int(m.group(2) or 1)
+        i += 1
+        while (old > 0 or new > 0) and i < len(lines):
+            line = lines[i]
+            tag = line[:1]
+            if tag in (' ', ''):
+                old -= 1
+                new -= 1
+            elif tag == '-':
+                old -= 1
+            elif tag == '+':
+                new -= 1
+            elif tag != '\\':
+                break
+            i += 1
+        if old != 0 or new != 0:
+            errors.append(f"hunk at line {start - 1} does not match its header "
+                          f"({lines[start - 1].split('@@')[1].strip()})")
+    return errors
+
+
+def file_sections(text):
+    """Yield (path, created, section_text) for each file in a unified diff."""
+    lines = text.splitlines(keepends=True)
+    cur = None
+    for i, line in enumerate(lines):
+        if line.startswith('--- ') and i + 1 < len(lines) and lines[i + 1].startswith('+++ '):
+            if cur:
+                yield cur[0], cur[1], ''.join(cur[2])
+            path = re.sub(r'^[ab]/', '', lines[i + 1][4:].split('\t')[0].strip())
+            cur = (path, line.startswith('--- /dev/null'), [])
+        elif line.startswith('diff ') or line.startswith('Only in '):
+            if cur:
+                yield cur[0], cur[1], ''.join(cur[2])
+            cur = None
+            continue
+        if cur:
+            cur[2].append(line)
+    if cur:
+        yield cur[0], cur[1], ''.join(cur[2])
+
+
+def replay_created_files(patch_files):
+    """Apply, in series order, every hunk for files the series itself creates
+    (bsd/dev/sweet_*.c and friends). Needs no XNU checkout and catches a patch
+    written against an older version of one of our own files."""
+    import shutil, tempfile
+    if not shutil.which('patch'):
+        return [], 0
+    errors, created = [], set()
+    with tempfile.TemporaryDirectory() as tmp:
+        for path in patch_files:
+            fname = os.path.basename(path)
+            with open(path, 'r', errors='surrogateescape') as f:
+                text = f.read()
+            for rel, creates, section in file_sections(text):
+                if creates:
+                    created.add(rel)
+                if rel not in created:
+                    continue
+                res = subprocess.run(['patch', '-p1', '-s', '-f', '--no-backup-if-mismatch',
+                                      '-r', '-', '-d', tmp], input=section.encode('utf-8', 'surrogateescape'),
+                                     capture_output=True)
+                if res.returncode != 0:
+                    errors.append(f"{fname}: does not apply to {rel} as left by the earlier patches")
+    return errors, len(created)
 
 
 def validate_patches(verbose=False):
@@ -50,9 +137,11 @@ def validate_patches(verbose=False):
             continue
 
         with open(path, 'r', errors='ignore') as f:
-            head = f.read(2048)
-            if not ('--- ' in head or 'diff ' in head or 'Index:' in head):
-                errors.append(f"Patch missing standard diff header: {fname}")
+            text = f.read()
+        head = text[:2048]
+        if not ('--- ' in head or 'diff ' in head or 'Index:' in head):
+            errors.append(f"Patch missing standard diff header: {fname}")
+        errors.extend(f"{fname}: {e}" for e in check_hunks(text))
 
     # Check contiguous sequence
     if seen_numbers:
@@ -65,13 +154,17 @@ def validate_patches(verbose=False):
             else:
                 expected += 1
 
+    replay_errors, ncreated = replay_created_files(patch_files)
+    errors.extend(replay_errors)
+
     if errors:
         print(red(f"[-] Patch validation failed with {len(errors)} error(s):"))
         for err in errors:
             print(f"    - {err}")
         return False
 
-    print(green(f"[✓] Validated {len(patch_files)} patches (0001-{len(patch_files):04d} contiguous, format OK)"))
+    print(green(f"[✓] Validated {len(patch_files)} patches (0001-{len(patch_files):04d} contiguous, format OK, "
+                f"{ncreated} series-created files replay cleanly)"))
     return True
 
 

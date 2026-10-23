@@ -2,6 +2,30 @@
 
 ## Agent handoff / active work (2026-10-15, latest)
 
+### >>> APOLLO PORT, UPDATE 2026-10-23 (read first; sweet history follows) <<<
+
+This fork (ios-apollo) retargets ios-sweet to the Xiaomi Mi 10T 5G (`apollo`, SM8250). Nothing below this block has been re-verified on apollo.
+
+**Observed:**
+- Commits 8b1ea62 / 2fb6c69 / 8cda14d (user): shim GIC/IMEM/timer PPIs for SM8250 (vtimer INTID 27, ptimer 30, restart reason 0x146bf65c), mkadt FB 0x9c000000 size 0x2300000, VTIMER_INTID 27, HIGH_MEM_SIZE 4 GiB, compatible + `xiaomi,apollo`/`qcom,sm8250`; patch 0082 (NT36675 SPI touch + volume-up). The shim builds cleanly (checked with clang --target=aarch64, -Wall -Wextra).
+- As committed, **0082 was malformed and would have failed CI**: the sweet_keys.c hunk header said `-136,7 +136,10` for 7/9 lines (`patch`: "malformed patch at line 949"), and the sweet_touch.c hunks were diffed against the 0060 version of the file, not the version after 0062/0063 (3 of 4 hunks rejected). The root-level copies `0082-apollo-novatek-touch.patch` / `sweet_touch.c` hold the same content.
+- `boot.txt.bin` (4198400 bytes = the 1025-block log ring, committed by the user) is **all zero bytes**: no persistent log was written on that boot. Whether the kernel ran at all is unknown.
+
+**Done 2026-10-23 (this session):**
+- 0082 regenerated with `diff -u` against the files as left by 0060..0081; `patch -p1` and `git apply --check` both pass. The intended driver (root `sweet_touch.c`) was kept, with these changes: GENI opcode in M_CMD0[31:27] (it was in the low bits, with the length OR'd in); full-duplex equal TX/RX lengths; TX queued and RX drained while the command runs (69 bytes per report read can exceed the SE FIFO depth); NT36xxx read framing (addr & 0x7f, one dummy byte, data from byte 2); all MMIO/reset work moved into the thread after `sweettouchdelay` (default 45 s, like sweet) instead of blocking `sweet_touch_init`'s caller; rate-limited errors with 1 s backoff instead of a permanent `dead` after one timeout; the first non-empty raw report is always logged. Keys: volume-up PPID 0x4c1 then 0x1c1 (the user's fallback), `sweetvolup=0xPPID` override, GPIO register offsets derived from the PPID. Both files were stub-compiled with clang -Weverything (only unused-register-macro warnings).
+- `tools/validate-repo.py` now checks hunk line counts and replays every series-created file (80 files) through all patches with `patch -p1` (0.6 s). It flags the old 0082 with 3 errors. `xnu.yml` runs it as an Ubuntu `validate` job before the macOS build.
+- README rewritten for the apollo fork. `.gitignore`: `logs/`, `*.img`, `*.simg`.
+- Not done: deleting the root duplicates (`0082-apollo-novatek-touch.patch`, `sweet_touch.c`), `boot.txt.bin` and the CI zips (`xnu-kernel.zip`, `xnu-buildtree.zip`, 83 MB, partly Apple KDK symbol listings). Removal was blocked pending the user's OK.
+
+**Guesses / unverified (check first on apollo):**
+- TLMM GPIO 8/9 at 0x0f100000 + n*0x1000: SM8250's TLMM has west/south/north tiles (0x0f100000 / 0x0f500000 / 0x0f900000); which tile holds GPIO 8/9 is unchecked (no network to the Linux sources in this session).
+- Volume-up PPID: on many SM8250 boards vol-up is PM8150 GPIO6 (PPID 0x0c5); try `sweetvolup=0xc5` if 0x4c1/0x1c1 read nothing.
+- NT36675 event buffer: reads go to address 0 of whatever page is selected; the real point data needs the 0xff page select to EVENT_BUF_ADDR from the NT36675 memory map. Boot with `sweettouch_debug=1` and look at the `SWEET TOUCH: raw` lines.
+- HIGH_MEM_SIZE 4 GiB from 0x1_00000000 was not checked against apollo's `/memory` node and reserved-memory carve-outs.
+- Kernel-side sweet assumptions still present: CPU topology (0078 cpus=8 = 6×A55 + 2×A76), RPMh L11C touch rail (0062, now unused by touch), USB QSCRATCH/DWC3 addresses (0072–0074), display power (0079).
+
+**Next:** push → CI kernel build with the new 0082 → boot with `cpus=1 sweettouch_debug=1`, then pull the log. If the log ring is empty again, use the framebuffer console (`sweetfb_noconsole` unset) to see how far the kernel gets.
+
 ### >>> UPDATE 2026-10-18 (read first, then the 10-17 handoff below) <<<
 
 **STATE at end of 2026-10-18 (evening):**

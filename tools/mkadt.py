@@ -22,7 +22,9 @@ PANIC_LOG_SIZE = 0x100000
 # <0x80000000 2G>, <0x1_00000000 0xfcc00000>; every fixed reserved-memory
 # carve-out is in the low bank and the dynamic pools are limited below 4G.
 HIGH_PHYS_BASE = 0x100000000
-HIGH_MEM_SIZE = 0x100000000          # 4 GiB — conservative for apollo first boots
+# apollo: 4 GiB from 0x1_00000000 (sweet used 0xfcc00000); not yet checked
+# against apollo's /memory node
+HIGH_MEM_SIZE = 0x100000000
 # /arm-io children are relative to this; it must not be 0 (serial_init bails)
 SOC_BASE = 0x01000000
 
@@ -31,8 +33,8 @@ GICR, GICR_SIZE = 0x17a60000, 0x100000
 # cont_splash_region@9c000000 from live.dts = 0x2300000
 FB, FB_SIZE = 0x9c000000, 0x2300000
 SWEET_ECID = 0x5357454554000001  # 'SWEET' + 1, synthetic
-# Mi 10T 5G 1080x2400, stride = width * 4
-FB_W, FB_H, FB_STRIDE = 0x438, 0x960, 0x10e0
+# Mi 10T 5G 1080x2400, a8r8g8b8
+FB_W, FB_H, FB_STRIDE = 1080, 2400, 1080 * 4
 # Internal UFS host (ufshc@1d84000 "ufs_mem"); QEMU virt has none
 UFS, UFS_SIZE = 0x01d84000, 0x3000
 TIMEBASE = 19200000
