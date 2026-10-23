@@ -22,15 +22,17 @@ PANIC_LOG_SIZE = 0x100000
 # <0x80000000 2G>, <0x1_00000000 0xfcc00000>; every fixed reserved-memory
 # carve-out is in the low bank and the dynamic pools are limited below 4G.
 HIGH_PHYS_BASE = 0x100000000
-HIGH_MEM_SIZE = 0xfcc00000
+HIGH_MEM_SIZE = 0x100000000          # 4 GiB — conservative for apollo first boots
 # /arm-io children are relative to this; it must not be 0 (serial_init bails)
 SOC_BASE = 0x01000000
 
 GICD, GICD_SIZE = 0x17a00000, 0x10000
 GICR, GICR_SIZE = 0x17a60000, 0x100000
+# cont_splash_region@9c000000 from live.dts = 0x2300000
 FB, FB_SIZE = 0x9c000000, 0x2300000
 SWEET_ECID = 0x5357454554000001  # 'SWEET' + 1, synthetic
-FB_W, FB_H, FB_STRIDE = 1080, 2400, 4320 * 4
+# Mi 10T 5G 1080x2400, stride = width * 4
+FB_W, FB_H, FB_STRIDE = 0x438, 0x960, 0x10e0
 # Internal UFS host (ufshc@1d84000 "ufs_mem"); QEMU virt has none
 UFS, UFS_SIZE = 0x01d84000, 0x3000
 TIMEBASE = 19200000
@@ -228,10 +230,11 @@ def build(seed=None, qemu=False, highmem=False):
 
     # Identity of the iPhone X whose userland runs here: compatible[0] is
     # hw.model/hw.target (D22AP), model is hw.machine/hw.product
-    # (iPhone10,3). 'xiaomi,sweet' stays for SweetPlatformExpert matching.
+    # (iPhone10,3). 'xiaomi,sweet' MUST stay — SweetPlatformExpert matches
+    # only that string (patch 0016). Keep apollo/sm8250 for identification.
     return node('device-tree', [
         ph(),
-        ('compatible', cstr('D22AP') + cstr('iPhone10,3') + cstr('xiaomi,sweet') + cstr('qcom,sm7150') + cstr('AppleARM')),
+        ('compatible', cstr('D22AP') + cstr('iPhone10,3') + cstr('xiaomi,sweet') + cstr('xiaomi,apollo') + cstr('qcom,sm8250') + cstr('AppleARM')),
         ('model', cstr('iPhone10,3')),
         ('target-type', cstr('D22')),
         ('target-sub-type', cstr('D22AP')),

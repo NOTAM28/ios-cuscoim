@@ -3,7 +3,7 @@
  *   - CPU feature registers (16K granule, GIC sysreg interface)
  *   - PSCI/SMCCC version and which PSCI calls the Qualcomm TZ offers
  *   - SMP: PSCI CPU_ON for the 7 secondaries, each reports its MPIDR
- *   - GICv3 Group 1 IRQ from the virtual timer (INTID 19 on Qualcomm)
+ *   - GICv3 Group 1 IRQ from the virtual timer (INTID 27 on SM8250)
  * Any unexpected exception paints a blue panic screen.
  */
 #include <stdint.h>
@@ -12,34 +12,15 @@
 #include "loader.h"
 #include "ufs.h"
 
-#define IMEM_RESTART_REASON	0x146aa65cUL	/* qcom,msm-imem restart_reason@65c */
-#define RESTART_BOOTLOADER	0x77665500U
-#define PSHOLD			0x0c264000UL
-
-#define GICD_BASE		0x17a00000
-#define GICR_BASE		0x17a60000
-#define GICR_SIZE		0x100000UL
-#define GICR_PE_SIZE		0x20000UL
-#define GICR_TYPER		0x08
-#define GICR_WAKER		0x14
-#define GICR_SGI		0x10000
-#define GICR_IGROUPR0		(GICR_SGI + 0x080)
-#define GICR_ISENABLER0		(GICR_SGI + 0x100)
-#define GICR_ICENABLER0		(GICR_SGI + 0x180)
-#define GICR_IPRIORITYR		(GICR_SGI + 0x400)
-#define GICR_ISPENDR0		(GICR_SGI + 0x200)
-#define GICR_ISACTIVER0		(GICR_SGI + 0x300)
-#define GICR_ICFGR1		(GICR_SGI + 0xc04)
-#define VTIMER_INTID		19	/* DT: <GIC_PPI 3 ...>, not the usual 27 */
-#define PTIMER_INTID		18	/* DT: <GIC_PPI 2 ...> */
-#define SGI_INTID		1#define IMEM_RESTART_REASON  0x146bf65cUL    /* qcom,msm-imem restart_reason@65c */
+/* apollo (SM8250) values from live.dts / iomem */
+#define IMEM_RESTART_REASON  0x146bf65cUL    /* qcom,msm-imem restart_reason@65c */
 #define RESTART_BOOTLOADER   0x77665500U
 #define PSHOLD               0x0c264000UL
 
 #define GICD_BASE            0x17a00000
 #define GICR_BASE            0x17a60000
-#define GICR_SIZE            0x100000UL
-#define GICR_PE_SIZE         0x20000UL
+#define GICR_SIZE            0x100000
+#define GICR_PE_SIZE         0x20000
 #define GICR_TYPER           0x08
 #define GICR_WAKER           0x14
 #define GICR_SGI             0x10000
