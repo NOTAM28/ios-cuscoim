@@ -23,6 +23,40 @@ This fork moves that work to `apollo`. As of **2026-10-23** the Mi 10T boots XNU
 
 The next steps and the full engineering history are in [`NOTES.md`](NOTES.md).
 
+## Roadmap
+
+**Overall: 7 of 15 milestones done**
+
+```
+[█████████░░░░░░░░░░░]  47 %
+```
+
+**Touch: 5 of 8 steps done**
+
+```
+[████████████░░░░░░░░]  62 %
+```
+
+| # | Milestone | State |
+| --- | --- | --- |
+| 1 | Shim boots on apollo (`fastboot boot`, SM8250 GIC/timers/PSCI) | ✅ Done |
+| 2 | XNU kernel boots on SM8250 | ✅ Done |
+| 3 | iOS root on UFS `userdata` mounts, launchd and daemons run | ✅ Done |
+| 4 | iOS GUI on screen (Setup) | ✅ Done |
+| 5 | Six cores (`cpus=6`) | ✅ Done |
+| 6 | Buttons: power, volume-up, volume-down | ✅ Done |
+| 7 | Touch: GPIO pins, SE4 clocks, SPI pin mux, SPI engine, chip ID | ✅ Done |
+| 8 | Touch: firmware download into the NT36675 (0093) | 🔄 Written, testing next |
+| 9 | Touch: finger reports reach iOS; Setup, home screen and gestures usable | ⏳ Next |
+| 10 | All eight cores (`cpus=8`, A55 + A77) | ⏳ Planned |
+| 11 | Display: fix the red band on the Setup page; display off/on with the power button (0079 for SM8250) | ⏳ Planned |
+| 12 | USB device mode, USB Ethernet and the live kernel log (0072–0077 retargeted to SM8250) | ⏳ Planned |
+| 13 | Battery and charging readout | ⏳ Planned |
+| 14 | Wi-Fi, Bluetooth, audio, cameras, sensors, cellular | 🔭 Long term |
+| 15 | GPU acceleration (Adreno 650) | 🔭 Long term |
+
+The touch steps are pins, clocks, pin mux, SPI and chip ID (all done), then firmware download, finger reports and iOS gestures. Milestones 14 and 15 were never done on sweet either: they need drivers for hardware Apple's userland knows nothing about, so treat them as research, not scheduled work.
+
 ## What ios-sweet achieved on `sweet` (the baseline)
 
 | Area | State on sweet (as of 2026-10-18) |
