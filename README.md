@@ -15,7 +15,7 @@ This fork moves that work to `apollo`. As of **2026-10-24** the Mi 10T boots XNU
 | Boot | Stock bootloader → `fastboot boot` shim → XNU → iOS 16.7 userland from `userdata` → **Setup (Siri page) on screen**. Kernel log readable from recovery |
 | Boot shim | GIC, PSCI, IMEM restart reason and timer PPIs retargeted to SM8250 (virtual timer INTID 27, physical timer INTID 30, restart reason at `0x146bf65c`) |
 | Device tree (ADT) | `tools/mkadt.py`: 1080×2400 framebuffer at `0x9c000000` (35 MiB splash region), virtual timer INTID 27, 4 GiB from `0x1_00000000`, root compatible gains `xiaomi,apollo` / `qcom,sm8250` (`xiaomi,sweet` stays: `SweetPlatformExpert` matches it). `--touch-fw` embeds the touch firmware |
-| CPU | `cpus=6` boots and is noticeably faster than `cpus=1`; `cpus=8` untested (SM8250: 4×A55 + 4×A77) |
+| CPU | `cpus=6` boots all six cores (four A55, two A77); `cpus=8` untested. 0095 raises the clock, which nothing set before (the bootloader's speed, slow GUI). Not yet tested |
 | Buttons | **Working** (0082, 0084): power and volume-down on the PON block, volume-up on PM8150 GPIO6 (PPID `0x0c5`), probed automatically; `sweetvolup=0xPPID` overrides |
 | Touch | **Working** (0082–0094, first touch 2026-10-24). Novatek NT36675 on QUP0 SE4 SPI (`spi@990000`), reset GPIO 38, IRQ GPIO 39 (rising edge). The driver finds the pins (south TLMM tile), votes the SE4 clocks in GCC (DFS level 0 = 19.2 MHz), muxes GPIO 8–11 to `qup4`, sets up SPI at 4.8 MHz, reads the chip ID (`0e 00 00 72 66 03`), downloads the firmware with hardware CRC (reset state `0xa0`) and polls the event buffer at `0x22D00`. The chip has no flash: its firmware (`novatek_nt36675_j3s_fw01.bin`, built into Xiaomi's kernel and published in their kernel source; not in git) goes into the ADT with `mkadt.py --touch-fw` |
 | Display | Kernel text and the iOS GUI on the bootloader framebuffer. A bottom band of the Setup page is drawn red (unexplained) |
@@ -164,6 +164,7 @@ Without `--touch-fw`, the kernel boots normally and touch stops before the firmw
 | `sweettouchdelay=S`, `sweettouch_debug=1` | Touch start delay in seconds (default 20); log every raw report |
 | `sweettouchfw=0`, `sweettouchmux=0` | Skip the firmware download or the SPI pin mux |
 | `sweettouchse=`, `sweettouchrst=`, `sweettouchirq=`, `sweettouchtlmm=`, `sweettouchdiv=`, `sweettouchbuf=` | Override the SPI engine address, reset/IRQ GPIOs, TLMM tile, SPI clock divider (default 4 = 4.8 MHz) and event buffer address |
+| `sweetcpufreq=N` | CPU clock: 0 leaves the firmware's speed, 1 (default) the highest non-boost level per cluster, N > 1 the highest level at or below N MHz |
 | `ufslogsecs=N` | Persistent-log flush interval in seconds (use 1 when chasing hangs) |
 | `sweetvolup=0xPPID` | PMIC GPIO peripheral for volume-up (SID << 8 \| peripheral) |
 | `sweetusb=2` | USB device mode, CDC-ECM Ethernet and the live log |
@@ -192,7 +193,7 @@ The driver lines start with `SWEET ...`, and crash reports start with `CRASH nam
 | Path | What |
 | --- | --- |
 | `shim/` | Bare-metal boot shim (C + asm) packed as an Android boot.img v2 |
-| `xnu/patches/` | The XNU patch series (0001–0094, applied in order by CI) plus staging scripts for libpthread, HFS and BearSSL |
+| `xnu/patches/` | The XNU patch series (0001–0095, applied in order by CI) plus staging scripts for libpthread, HFS and BearSSL |
 | `.github/workflows/xnu.yml` | `validate` (Ubuntu, seconds), then the kernel `build` (macOS) |
 | `tools/validate-repo.py` | Patch-series and script checks (numbering, hunk headers, replay of series-created files) |
 | `tools/mkadt.py` | Apple Device Tree from the board's MMIO layout and the iPhone X identity |
@@ -240,6 +241,7 @@ Not in git: partition backups, live device trees, recovery images, Apple firmwar
 | **0090–0092** | **apollo:** SE4 clock votes in GCC (hardware-gated branches accepted); SPI pin mux GPIO 8–11 → `qup4` |
 | **0093** | **apollo:** NT36675 firmware host download with hardware CRC (firmware from the ADT) |
 | **0094** | **apollo:** touch on by default (stage 4, 20 s delay); no polling without running firmware |
+| **0095** | **apollo:** CPU clock through the SM8250 OSM frequency tables (`sweet_cpufreq.c`) |
 
 ## Key hardware facts
 
