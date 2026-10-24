@@ -17,7 +17,7 @@ This fork moves that work to `apollo`. As of **2026-10-23** the Mi 10T boots XNU
 | Device tree (ADT) | `tools/mkadt.py`: 1080×2400 framebuffer at `0x9c000000` (35 MiB splash region), virtual timer INTID 27, 4 GiB from `0x1_00000000`, root compatible gains `xiaomi,apollo` / `qcom,sm8250` (`xiaomi,sweet` stays: `SweetPlatformExpert` matches it). `--touch-fw` embeds the touch firmware |
 | CPU | `cpus=6` boots and is noticeably faster than `cpus=1`; `cpus=8` untested (SM8250: 4×A55 + 4×A77) |
 | Buttons | **Working** (0082, 0084): power and volume-down on the PON block, volume-up on PM8150 GPIO6 (PPID `0x0c5`), probed automatically; `sweetvolup=0xPPID` overrides |
-| Touch | **In progress** (0082–0093), Novatek NT36675 on QUP0 SE4 SPI (`spi@990000`), reset GPIO 38, IRQ GPIO 39 (rising edge). Working: the GPIO pins (south TLMM tile), SE4 clocks (GCC votes, DFS level 0 = 19.2 MHz), SPI pin mux (GPIO 8–11 → `qup4`), the SPI engine setup and the chip-ID read (`0e 00 00 72 66 03` = NT36675). Written, **not yet tested**: the firmware download (0093). The chip has no flash, so its firmware (`novatek_nt36675_j3s_fw01.bin`, from Xiaomi's fastboot ROM `vendor` image, not in git) must be loaded at every boot |
+| Touch | **In progress** (0082–0093), Novatek NT36675 on QUP0 SE4 SPI (`spi@990000`), reset GPIO 38, IRQ GPIO 39 (rising edge). Working: the GPIO pins (south TLMM tile), SE4 clocks (GCC votes, DFS level 0 = 19.2 MHz), SPI pin mux (GPIO 8–11 → `qup4`), the SPI engine setup and the chip-ID read (`0e 00 00 72 66 03` = NT36675). Written, **not yet tested**: the firmware download (0093). The chip has no flash, so its firmware (`novatek_nt36675_j3s_fw01.bin`, built into Xiaomi's kernel and published in their kernel source; not in git) must be loaded at every boot |
 | Display | Kernel text and the iOS GUI on the bootloader framebuffer. A bottom band of the Setup page is drawn red (unexplained) |
 | Not ported yet | Display power (0079), USB device mode / Ethernet (0072–0077), battery, the `/memory` size check |
 
@@ -140,7 +140,17 @@ python3 tools/mkpayload.py xnu/out/kernel.development.sweet shim/out/apollo.adt 
 shim/build.sh ../shim/out/payload.bin      # -> shim/out/shim-boot.img
 ```
 
-The touch firmware comes from Xiaomi's fastboot ROM. On Linux: run `simg2img super.img super.raw`, then `tools/lpextract.py super.raw vendor vendor.img`, mount `vendor.img` read-only and copy `firmware/novatek_nt36675_j3s_fw01.bin` to `research/apollo-fw/`. `research/` is in `.gitignore`. Without `--touch-fw`, the kernel boots normally and touch stops before the firmware download.
+The touch firmware is compiled into Xiaomi's stock kernel, so it is on no partition. Xiaomi publishes it in their kernel source (`firmware/` of MiCode/Xiaomi_Kernel_OpenSource, branch `apollo-q-oss`). Download and convert it (not in git; `research/` is in `.gitignore`):
+
+```sh
+mkdir -p research/apollo-fw && cd research/apollo-fw
+curl -LO https://raw.githubusercontent.com/MiCode/Xiaomi_Kernel_OpenSource/apollo-q-oss/firmware/novatek_nt36675_j3s_fw01.bin.ihex
+objcopy -I ihex -O binary novatek_nt36675_j3s_fw01.bin.ihex novatek_nt36675_j3s_fw01.bin
+sha256sum novatek_nt36675_j3s_fw01.bin   # 429137d357f25c62be6652c179041fe2f1a815e4890bbd531eb1506110bbe628
+cd ../..
+```
+
+Without `--touch-fw`, the kernel boots normally and touch stops before the firmware download. `tools/nvt-fw-find.py` can also pull the firmware out of a stock kernel `Image`.
 
 | Boot-arg | Effect |
 | --- | --- |
@@ -193,6 +203,7 @@ The driver lines start with `SWEET ...`, and crash reports start with `CRASH nam
 | `tools/xnu-cc.py` | Local single-file compile check from a CI log |
 | `tools/qemu-sweet.py` | QEMU test boots with framebuffer text decoding |
 | `tools/lpextract.py` | Extract one partition (e.g. `vendor`) from a raw Android `super` image |
+| `tools/nvt-fw-find.py` | Find and extract NT36xxx touch firmware built into a kernel `Image` |
 | `tools/adt.py`, `remotezip.py`, `unpack_bootv2.py`, `sparsediff.py`, `check-exports.py` | Helpers |
 | `site/` | The project website |
 | `NOTES.md` | Engineering log: every boot, crash and decision, hardware facts, the active handoff |
