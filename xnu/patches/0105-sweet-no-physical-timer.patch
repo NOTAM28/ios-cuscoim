@@ -1,0 +1,14 @@
+diff --git a/osfmk/arm64/machine_routines.c b/osfmk/arm64/machine_routines.c
+index e4c15f2..4cc3bac 100644
+--- a/osfmk/arm64/machine_routines.c
++++ b/osfmk/arm64/machine_routines.c
+@@ -2274,7 +2274,9 @@ _enable_virtual_timer(void)
+ 
+ 	__builtin_arm_wsr64("CNTV_CTL_EL0", cntvctl);
+ 	/* disable the physical timer as a precaution, as its registers reset to architecturally unknown values */
++#if !defined(SWEET)
+ 	__builtin_arm_wsr64("CNTP_CTL_EL0", CNTP_CTL_EL0_IMASKED);
++#endif /* SWEET: Qualcomm hypervisor traps the physical timer at EL1; the virtual timer is used */
+ }
+ 
+ void
