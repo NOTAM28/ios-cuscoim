@@ -15,7 +15,7 @@ This fork moves that work to `apollo`. As of **2026-10-24** the Mi 10T boots XNU
 | Boot | Stock bootloader → `fastboot boot` shim → XNU → iOS 16.7 userland from `userdata` → **Setup (Siri page) on screen**. Kernel log readable from recovery |
 | Boot shim | GIC, PSCI, IMEM restart reason and timer PPIs retargeted to SM8250 (virtual timer INTID 27, physical timer INTID 30, restart reason at `0x146bf65c`) |
 | Device tree (ADT) | `tools/mkadt.py`: 1080×2400 framebuffer at `0x9c000000` (35 MiB splash region), virtual timer INTID 27, 4 GiB from `0x1_00000000`, root compatible gains `xiaomi,apollo` / `qcom,sm8250` (`xiaomi,sweet` stays: `SweetPlatformExpert` matches it). `--touch-fw` embeds the touch firmware |
-| CPU | `cpus=6` boots all six cores (four A55, two A77); `cpus=8` untested. 0095 raises the clock, which nothing set before (the bootloader's speed, slow GUI). Not yet tested |
+| CPU | `cpus=6` boots all six cores (four A55, two A77); `cpus=8` untested. `sweet_cpufreq.c` (0098) raises each cluster to its top EPSS level at boot: silver 1804 MHz, gold 2419 MHz, prime 2841 MHz (was 1516 / 710 MHz). No thermal management yet; `sweetcpufreq=N` caps at N MHz |
 | Buttons | **Working** (0082, 0084): power and volume-down on the PON block, volume-up on PM8150 GPIO6 (PPID `0x0c5`), probed automatically; `sweetvolup=0xPPID` overrides |
 | Touch | **Working** (0082–0094, first touch 2026-10-24). Novatek NT36675 on QUP0 SE4 SPI (`spi@990000`), reset GPIO 38, IRQ GPIO 39 (rising edge). The driver finds the pins (south TLMM tile), votes the SE4 clocks in GCC (DFS level 0 = 19.2 MHz), muxes GPIO 8–11 to `qup4`, sets up SPI at 4.8 MHz, reads the chip ID (`0e 00 00 72 66 03`), downloads the firmware with hardware CRC (reset state `0xa0`) and polls the event buffer at `0x22D00`. The chip has no flash: its firmware (`novatek_nt36675_j3s_fw01.bin`, built into Xiaomi's kernel and published in their kernel source; not in git) goes into the ADT with `mkadt.py --touch-fw` |
 | Display | Kernel text and the iOS GUI on the bootloader framebuffer. A bottom band of the Setup page is drawn red (unexplained) |
@@ -48,12 +48,12 @@ The next steps and the full engineering history are in [`NOTES.md`](NOTES.md).
 | 7 | Touch: GPIO pins, SE4 clocks, SPI pin mux, SPI engine, chip ID | ✅ Done |
 | 8 | Touch: firmware download into the NT36675 (0093) | ✅ Done (2026-10-24) |
 | 9 | Touch: finger reports reach iOS; Setup, home screen and gestures usable | ✅ Done (2026-10-24) |
-| 10 | CPU speed: clock up via the OSM tables, then all eight cores (`cpus=8`, A55 + A77) | 🔄 0095/0097 used the wrong (OSM) layout; apollo has EPSS: fixed in 0098, testing next |
+| 10 | CPU speed: clock up via the EPSS tables, then all eight cores (`cpus=8`, A55 + A77) | 🔄 Clock done (2026-10-24: silver 1804 MHz, gold 2419 MHz, was 1516/710); `cpus=8` next |
 | 11 | Display: fix the red band on the Setup page; display off/on with the power button (0079 for SM8250) | ⏳ Planned |
 | 12 | USB device mode, USB Ethernet and the live kernel log (0072–0077 retargeted to SM8250) | ⏳ Planned |
 | 13 | Battery and charging readout | ⏳ Planned |
 | 14 | Wi-Fi, Bluetooth, audio, cameras, sensors, cellular | 🔭 Long term |
-| 15 | GPU acceleration (Adreno 650), following [HackiOS](https://github.com/oosexgang/hackios-xnu-kernel)'s Adreno 642L work: (1) probe, (2) GMU, (3) 3D core and zap shader, (4) Mesa freedreno + CoreAnimation bridge | 🔄 GPU block alive (2026-10-24: CX on, GMU at 200 MHz, its counter at 19.2 MHz); RSCC/SMMU/GMU-memory reads (0098) next, then GMU firmware |
+| 15 | GPU acceleration (Adreno 650), following [HackiOS](https://github.com/oosexgang/hackios-xnu-kernel)'s Adreno 642L work: (1) probe, (2) GMU, (3) 3D core and zap shader, (4) Mesa freedreno + CoreAnimation bridge | 🔄 Steps 1–10 pass (2026-10-24): CX on, GMU at 200 MHz and alive, RSCC and SMMU readable, GMU memory writable. Next: GMU firmware boot (SMMU tables, `a650_gmu.bin`, RPMh, HFI) |
 
 The touch steps are pins, clocks, pin mux, SPI, chip ID, firmware download, finger reports and iOS gestures, all done. Milestones 14 and 15 were never done on sweet either: they need drivers for hardware Apple's userland knows nothing about, so treat them as research, not scheduled work.
 
