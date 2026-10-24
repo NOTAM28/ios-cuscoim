@@ -85,6 +85,20 @@ const char *loader_boot(uintptr_t dtb)
 		return "no initrd in /chosen";
 	con_hex2("INITRD", "lo=", rd_start, "hi=", rd_end);
 
+	/* boot v4: ABL concatenates vendor/init_boot ramdisks; find our payload. */
+	{
+		uint64_t a, found = 0;
+		for (a = (rd_start + 7) & ~7UL; a + 8 <= rd_end; a += 8) {
+			if (magic_ok((const char *)a)) {
+				found = a;
+				break;
+			}
+		}
+		if (!found)
+			return "no SWEETXNU payload";
+		con_hex2("PAYLOAD", "at=", found, "off=", found - rd_start);
+		rd_start = found;
+	}
 	const struct payload *p = (const struct payload *)rd_start;
 	if (!magic_ok(p->magic))
 		return "no SWEETXNU payload";
