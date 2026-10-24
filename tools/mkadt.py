@@ -36,8 +36,8 @@ HIGH_MEM_SIZE = 0x100000000
 # /arm-io children are relative to this; it must not be 0 (serial_init bails)
 SOC_BASE = 0x01000000
 
-GICD, GICD_SIZE = 0x17a00000, 0x10000
-GICR, GICR_SIZE = 0x17a60000, 0x100000
+GICD, GICD_SIZE = 0x17200000, 0x10000
+GICR, GICR_SIZE = 0x17260000, 0x100000
 # cont_splash_region@9c000000 from live.dts = 0x2300000
 FB, FB_SIZE = 0xb8000000, 0x2300000  # TODO confirm splash size
 SWEET_ECID = 0x5357454554000001  # 'SWEET' + 1, synthetic
