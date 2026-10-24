@@ -4,11 +4,13 @@
 Only what the early boot path actually reads (see NOTES.md); every MMIO
 address comes from the sweet live FDT. Usage:
   mkadt.py OUT.adt [--dump] [--qemu] [--highmem] [--touch-fw FW.bin] [--gmu-fw a650_gmu.bin]
+            [--sqe-fw a650_sqe.fw]
 --touch-fw embeds the NT36675 touch firmware (Xiaomi's
 novatek_nt36675_j3s_fw01.bin, not in git) as /sweet-touch "firmware"; the
 apollo touch driver downloads it into the chip over SPI. --gmu-fw embeds the
 Adreno 650 GMU firmware (from the phone's /vendor/firmware, not in git) as
-/sweet-gpu "gmu-firmware" for sweet_gpu.c (sweetgpu=11 and up).
+/sweet-gpu "gmu-firmware" for sweet_gpu.c (sweetgpu=11 and up). --sqe-fw adds
+the 3D core's microcode as "sqe-firmware" (sweetgpu=18 and up).
 """
 import hashlib, os, struct, sys
 
@@ -84,7 +86,7 @@ def node(name, props=(), children=()):
     return n
 
 
-def build(seed=None, qemu=False, highmem=False, touch_fw=None, gmu_fw=None):
+def build(seed=None, qemu=False, highmem=False, touch_fw=None, gmu_fw=None, gpu_extra=()):
     """qemu=True: same tree, but with QEMU virt's GIC addresses and CNTFRQ (tools/qemu-sweet.py)."""
     phys_base, mem_size = (HIGH_PHYS_BASE, HIGH_MEM_SIZE) if highmem else (PHYS_BASE, MEM_SIZE)
     # Carve the panic log off the top so the kernel never allocates over it.
@@ -251,7 +253,7 @@ def build(seed=None, qemu=False, highmem=False, touch_fw=None, gmu_fw=None):
         ('#size-cells', u32(2)),
     ], [chosen, defaults, cpus, arm_io, fbcon, buttons, pram] + product + ([] if qemu else [ufs]) +
        ([node('sweet-touch', [ph(), ('firmware', touch_fw)])] if touch_fw else []) +
-       ([node('sweet-gpu', [ph(), ('gmu-firmware', gmu_fw)])] if gmu_fw else []))
+       ([node('sweet-gpu', [ph(), ('gmu-firmware', gmu_fw)] + list(gpu_extra))] if gmu_fw else []))
 
 
 if __name__ == '__main__':
@@ -263,7 +265,15 @@ if __name__ == '__main__':
     if '--gmu-fw' in sys.argv:
         gmu_fw = open(sys.argv[sys.argv.index('--gmu-fw') + 1], 'rb').read()
         print(f'GMU firmware: {len(gmu_fw)} bytes', file=sys.stderr)
-    root = build(qemu='--qemu' in sys.argv, highmem='--highmem' in sys.argv, touch_fw=touch_fw, gmu_fw=gmu_fw)
+    gpu_extra = []
+    if '--sqe-fw' in sys.argv:
+        sqe = open(sys.argv[sys.argv.index('--sqe-fw') + 1], 'rb').read()
+        print(f'SQE microcode: {len(sqe)} bytes', file=sys.stderr)
+        gpu_extra.append(('sqe-firmware', sqe))
+    if gpu_extra and not gmu_fw:
+        sys.exit('--sqe-fw needs --gmu-fw')
+    root = build(qemu='--qemu' in sys.argv, highmem='--highmem' in sys.argv, touch_fw=touch_fw, gmu_fw=gmu_fw,
+                 gpu_extra=gpu_extra)
     blob = adt.serialize(root)
     open(sys.argv[1], 'wb').write(blob)
     if '--dump' in sys.argv:
