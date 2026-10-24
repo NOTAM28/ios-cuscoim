@@ -3,7 +3,7 @@
  *   - CPU feature registers (16K granule, GIC sysreg interface)
  *   - PSCI/SMCCC version and which PSCI calls the Qualcomm TZ offers
  *   - SMP: PSCI CPU_ON for the 7 secondaries, each reports its MPIDR
- *   - GICv3 Group 1 IRQ from the virtual timer (INTID 27 on SM8250)
+ *   - GICv3 Group 1 IRQ from the virtual timer (INTID 27 on SM7435)
  * Any unexpected exception paints a blue panic screen.
  */
 #include <stdint.h>
@@ -13,12 +13,12 @@
 #include "ufs.h"
 
 /* apollo (SM8250) values from live.dts / iomem */
-#define IMEM_RESTART_REASON  0x146bf65cUL    /* qcom,msm-imem restart_reason@65c */
+#define IMEM_RESTART_REASON  0x146aa65cUL    /* qcom,msm-imem restart_reason@65c */
 #define RESTART_BOOTLOADER   0x77665500U
 #define PSHOLD               0x0c264000UL
 
-#define GICD_BASE            0x17a00000
-#define GICR_BASE            0x17a60000
+#define GICD_BASE            0x17200000
+#define GICR_BASE            0x17260000
 #define GICR_SIZE            0x100000
 #define GICR_PE_SIZE         0x20000
 #define GICR_TYPER           0x08

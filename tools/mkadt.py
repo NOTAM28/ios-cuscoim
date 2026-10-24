@@ -39,7 +39,7 @@ SOC_BASE = 0x01000000
 GICD, GICD_SIZE = 0x17a00000, 0x10000
 GICR, GICR_SIZE = 0x17a60000, 0x100000
 # cont_splash_region@9c000000 from live.dts = 0x2300000
-FB, FB_SIZE = 0x9c000000, 0x2300000
+FB, FB_SIZE = 0xb8000000, 0x2300000  # TODO confirm splash size
 SWEET_ECID = 0x5357454554000001  # 'SWEET' + 1, synthetic
 # Mi 10T 5G 1080x2400, a8r8g8b8
 FB_W, FB_H, FB_STRIDE = 1080, 2400, 1080 * 4
@@ -244,7 +244,7 @@ def build(seed=None, qemu=False, highmem=False, touch_fw=None, gmu_fw=None, gpu_
     # only that string (patch 0016). Keep apollo/sm8250 for identification.
     return node('device-tree', [
         ph(),
-        ('compatible', cstr('D22AP') + cstr('iPhone10,3') + cstr('xiaomi,sweet') + cstr('xiaomi,apollo') + cstr('qcom,sm8250') + cstr('AppleARM')),
+        ('compatible', cstr('D22AP') + cstr('iPhone10,3') + cstr('xiaomi,sweet') + cstr('moto,cuscoi') + cstr('qcom,parrot') + cstr('AppleARM')),
         ('model', cstr('iPhone10,3')),
         ('target-type', cstr('D22')),
         ('target-sub-type', cstr('D22AP')),
