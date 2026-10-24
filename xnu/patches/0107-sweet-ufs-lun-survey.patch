@@ -1,0 +1,87 @@
+diff --git a/bsd/dev/sweet_ufs.c b/bsd/dev/sweet_ufs.c
+index e27cc9b..d4505ef 100644
+--- a/bsd/dev/sweet_ufs.c
++++ b/bsd/dev/sweet_ufs.c
+@@ -131,6 +131,9 @@ ufs_wr(uint32_t off, uint32_t v)
+ 	*(volatile uint32_t *)(su.regs + off) = v;
+ }
+ 
++static bool ufs_quiet;          /* diagnostics: no per-command failure output */
++static uint8_t ufs_last_sense;  /* sense key of the last failed command */
++
+ static void
+ dma_sync(uint32_t off, uint32_t len)
+ {
+@@ -251,12 +254,15 @@ ufs_scsi(const uint8_t *cdb, unsigned cdb_len, uint32_t len, bool write)
+ 
+ 	uint32_t ocs = utrd->dw2 & 0xff;
+ 	if (ocs || ucd->resp[0] != 0x21 || ucd->resp[6] || ucd->resp[7]) {
+-		printf("SWEET UFS: command 0x%02x failed: ocs 0x%x upiu 0x%x response 0x%x status 0x%x\n",
+-		    cdb[0], ocs, ucd->resp[0], ucd->resp[6], ucd->resp[7]);
+-		printf("SWEET UFS: sense key 0x%x asc 0x%02x ascq 0x%02x senselen %u\n",
+-		    ucd->resp[36] & 0xf, ucd->resp[46], ucd->resp[47], ucd->resp[32] << 8 | ucd->resp[33]);
+-		for (int i = 0; i < 52; i++) {
+-			printf("%02x%s", ucd->resp[i], (i % 16 == 15 || i == 51) ? "\n" : " ");
++		ufs_last_sense = ucd->resp[36] & 0xf;
++		if (!ufs_quiet) {
++			printf("SWEET UFS: command 0x%02x failed: ocs 0x%x upiu 0x%x response 0x%x status 0x%x\n",
++			    cdb[0], ocs, ucd->resp[0], ucd->resp[6], ucd->resp[7]);
++			printf("SWEET UFS: sense key 0x%x asc 0x%02x ascq 0x%02x senselen %u\n",
++			    ucd->resp[36] & 0xf, ucd->resp[46], ucd->resp[47], ucd->resp[32] << 8 | ucd->resp[33]);
++			for (int i = 0; i < 52; i++) {
++				printf("%02x%s", ucd->resp[i], (i % 16 == 15 || i == 51) ? "\n" : " ");
++			}
+ 		}
+ 		return EIO;
+ 	}
+@@ -632,12 +638,45 @@ sweet_ufs_init(void)
+ 	error = ufs_take_over_host();
+ 	if (!error) {
+ 		static const uint8_t tur[6] = { 0x00 };
+-		/* The first command after the bootloader may report a unit attention. */
+-		for (int i = 0; i < 3 && (error = ufs_scsi(tur, sizeof(tur), 0, false)); i++) {
++		static const uint8_t ssu[6] = { 0x1b, 0x00, 0x00, 0x00, 0x01, 0x00 };        /* START STOP UNIT, START=1 */
++		static const uint8_t ssu_active[6] = { 0x1b, 0x00, 0x00, 0x00, 0x10, 0x00 }; /* power condition: ACTIVE */
++		int found = ENOENT;
++
++		/* Device W-LUN: make sure the device is in Active power mode (what Linux does on resume). */
++		su.lun = 0xd0;
++		ufs_quiet = true;
++		ufs_last_sense = 0;
++		int wl = ufs_scsi(ssu_active, sizeof(ssu_active), 0, false);
++		printf("SWEET UFS: device W-LUN go-active: %d (sense key 0x%x)\n", wl, wl ? ufs_last_sense : 0);
++
++		for (uint8_t lun = 0; lun < 8 && found; lun++) {
++			int ready = EIO;
++			su.lun = lun;
++			ufs_last_sense = 0;
++			for (int i = 0; i < 6 && ready; i++) {
++				ready = ufs_scsi(tur, sizeof(tur), 0, false);
++				if (ready && i == 2) {
++					(void)ufs_scsi(ssu, sizeof(ssu), 0, false);
++				}
++				if (ready) {
++					delay(200000);
++				}
++			}
++			printf("SWEET UFS: LUN %u test unit ready: %d (sense key 0x%x)\n", (unsigned)lun, ready, ready ? 0 : ufs_last_sense);
++			if (!ready) {
++				found = ufs_find_partition(want);
++				printf("SWEET UFS: LUN %u partition \"%s\": %d\n", (unsigned)lun, want, found);
++			}
++		}
++		ufs_quiet = false;
++		if (found) {
++			su.lun = 0;
++		}
++		error = found;
++		printf("SWEET UFS: diagnostic hold 30 s\n");
++		for (int i = 0; i < 30; i++) {
++			delay(1000000);
+ 		}
+-	}
+-	if (!error) {
+-		error = ufs_find_partition(want);
+ 	}
+ 	lck_mtx_unlock(&sweet_ufs_lock);
+ 	if (error) {
