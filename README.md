@@ -53,7 +53,7 @@ The next steps and the full engineering history are in [`NOTES.md`](NOTES.md).
 | 12 | USB device mode, USB Ethernet and the live kernel log (0072–0077 retargeted to SM8250) | ⏳ Planned |
 | 13 | Battery and charging readout | ⏳ Planned |
 | 14 | Wi-Fi, Bluetooth, audio, cameras, sensors, cellular | 🔭 Long term |
-| 15 | GPU acceleration (Adreno 650) | 🔭 Long term |
+| 15 | GPU acceleration (Adreno 650), following [HackiOS](https://github.com/oosexgang/hackios-xnu-kernel)'s Adreno 642L work: (1) probe, (2) GMU, (3) 3D core and zap shader, (4) Mesa freedreno + CoreAnimation bridge | 🔄 Phase 1 probe (0096) |
 
 The touch steps are pins, clocks, pin mux, SPI, chip ID, firmware download, finger reports and iOS gestures, all done. Milestones 14 and 15 were never done on sweet either: they need drivers for hardware Apple's userland knows nothing about, so treat them as research, not scheduled work.
 
@@ -165,6 +165,7 @@ Without `--touch-fw`, the kernel boots normally and touch stops before the firmw
 | `sweettouchfw=0`, `sweettouchmux=0` | Skip the firmware download or the SPI pin mux |
 | `sweettouchse=`, `sweettouchrst=`, `sweettouchirq=`, `sweettouchtlmm=`, `sweettouchdiv=`, `sweettouchbuf=` | Override the SPI engine address, reset/IRQ GPIOs, TLMM tile, SPI clock divider (default 4 = 4.8 MHz) and event buffer address |
 | `sweetcpufreq=N` | CPU clock: 0 leaves the firmware's speed, 1 (default) the highest non-boost level per cluster, N > 1 the highest level at or below N MHz |
+| `sweetgpu=1..3` | Adreno 650 phase 1 probe (off by default): 1 reads the GPU clocks in GCC, 2 switches the GPU config-bus clock on if needed, 3 reads the GPU clock controller |
 | `ufslogsecs=N` | Persistent-log flush interval in seconds (use 1 when chasing hangs) |
 | `sweetvolup=0xPPID` | PMIC GPIO peripheral for volume-up (SID << 8 \| peripheral) |
 | `sweetusb=2` | USB device mode, CDC-ECM Ethernet and the live log |
@@ -193,7 +194,7 @@ The driver lines start with `SWEET ...`, and crash reports start with `CRASH nam
 | Path | What |
 | --- | --- |
 | `shim/` | Bare-metal boot shim (C + asm) packed as an Android boot.img v2 |
-| `xnu/patches/` | The XNU patch series (0001–0095, applied in order by CI) plus staging scripts for libpthread, HFS and BearSSL |
+| `xnu/patches/` | The XNU patch series (0001–0096, applied in order by CI) plus staging scripts for libpthread, HFS and BearSSL |
 | `.github/workflows/xnu.yml` | `validate` (Ubuntu, seconds), then the kernel `build` (macOS) |
 | `tools/validate-repo.py` | Patch-series and script checks (numbering, hunk headers, replay of series-created files) |
 | `tools/mkadt.py` | Apple Device Tree from the board's MMIO layout and the iPhone X identity |
@@ -242,6 +243,7 @@ Not in git: partition backups, live device trees, recovery images, Apple firmwar
 | **0093** | **apollo:** NT36675 firmware host download with hardware CRC (firmware from the ADT) |
 | **0094** | **apollo:** touch on by default (stage 4, 20 s delay); no polling without running firmware |
 | **0095** | **apollo:** CPU clock through the SM8250 OSM frequency tables (`sweet_cpufreq.c`) |
+| **0096** | **apollo:** Adreno 650 phase 1, staged read-only probe of the GPU clocks and power (`sweet_gpu.c`, `sweetgpu=N`) |
 
 ## Key hardware facts
 
