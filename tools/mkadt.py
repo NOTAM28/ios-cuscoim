@@ -29,10 +29,9 @@ PANIC_LOG_SIZE = 0x100000
 # --highmem (phone only): the whole upper DDR bank. The live FDT memory node is
 # <0x80000000 2G>, <0x1_00000000 0xfcc00000>; every fixed reserved-memory
 # carve-out is in the low bank and the dynamic pools are limited below 4G.
-HIGH_PHYS_BASE = 0x100000000
-# apollo: 4 GiB from 0x1_00000000 (sweet used 0xfcc00000); not yet checked
-# against apollo's /memory node
-HIGH_MEM_SIZE = 0x100000000
+HIGH_PHYS_BASE = 0x8c0000000
+# cuscoi: clean 3 GiB System RAM block per /proc/iomem (0x8_C0000000-0x9_7EFFFFFF)
+HIGH_MEM_SIZE = 0xBF000000
 # /arm-io children are relative to this; it must not be 0 (serial_init bails)
 SOC_BASE = 0x01000000
 
