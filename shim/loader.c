@@ -88,7 +88,12 @@ const char *loader_boot(uintptr_t dtb)
 	/* boot v4: ABL concatenates vendor/init_boot ramdisks; find our payload. */
 	{
 		uint64_t a, found = 0;
-		for (a = rd_start; a + 8 <= rd_end; a++) {
+		extern char _head[], _end[];
+		con_hex2("IMAGE", "head=", (uint64_t)_head, "end=", (uint64_t)_end);
+		con_hex2("AT_END", "w0=", *(volatile uint32_t *)_end, "w1=", *(volatile uint32_t *)(_end + 4));
+		if (magic_ok((const char *)_end))
+			found = (uint64_t)_end;
+		else for (a = rd_start; a + 8 <= rd_end; a++) {
 			if (magic_ok((const char *)a)) {
 				found = a;
 				break;

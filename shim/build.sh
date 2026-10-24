@@ -21,10 +21,18 @@ size=$(aarch64-linux-gnu-nm out/shim.elf | awk '$3=="_end"{print strtonum("0x"$1
 truncate -s "$size" out/Image
 # Ramdisk: an xnu payload (tools/mkpayload.py) if given as $1, else an empty
 # newc cpio (ABL dislikes a zero-size ramdisk on some builds) -> diagnostics.
+(cd out && rm -rf rd && mkdir rd && cd rd && find . | cpio -o -H newc --quiet | gzip -9 > ../ramdisk.bin)
+# APPENDED_PAYLOAD: ABL ignores our ramdisk (it uses init_boot), so the xnu
+# payload rides inside the kernel image, right after _end.
 if [ -n "${1:-}" ]; then
-	cp "$1" out/ramdisk.bin
-else
-	(cd out && rm -rf rd && mkdir rd && cd rd && find . | cpio -o -H newc --quiet | gzip -9 > ../ramdisk.bin)
+	cat "$1" >> out/Image
+	python3 - <<'PY'
+import struct
+d = bytearray(open("out/Image", "rb").read())
+d[16:24] = struct.pack("<Q", len(d))
+open("out/Image", "wb").write(d)
+print("Image size patched to", len(d))
+PY
 fi
 python3 ../tools/mkboot_v4.py --kernel out/Image --ramdisk out/ramdisk.bin --stock "${STOCK_BOOT:-$HOME/in/boot.img}" --cmdline "console=null" -o out/shim-boot.img
 # Host render of the console layout.
