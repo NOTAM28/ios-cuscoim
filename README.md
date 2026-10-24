@@ -53,7 +53,7 @@ The next steps and the full engineering history are in [`NOTES.md`](NOTES.md).
 | 12 | USB device mode, USB Ethernet and the live kernel log (0072–0077 retargeted to SM8250) | ⏳ Planned |
 | 13 | Battery and charging readout | ⏳ Planned |
 | 14 | Wi-Fi, Bluetooth, audio, cameras, sensors, cellular | 🔭 Long term |
-| 15 | GPU acceleration (Adreno 650), following [HackiOS](https://github.com/oosexgang/hackios-xnu-kernel)'s Adreno 642L work: (1) probe, (2) GMU, (3) 3D core and zap shader, (4) Mesa freedreno + CoreAnimation bridge | 🔄 Steps 1–10 pass (2026-10-24): CX on, GMU at 200 MHz and alive, RSCC and SMMU readable, GMU memory writable. Next: GMU firmware boot (SMMU tables, `a650_gmu.bin`, RPMh, HFI) |
+| 15 | GPU acceleration (Adreno 650), following [HackiOS](https://github.com/oosexgang/hackios-xnu-kernel)'s Adreno 642L work: (1) probe, (2) GMU, (3) 3D core and zap shader, (4) Mesa freedreno + CoreAnimation bridge | 🔄 Phase 2 done (2026-10-24): **the GMU's firmware runs** (`a650_gmu.bin` through our SMMU context, `fw_init_result 0x100`) and its HFI queues are up. Next, phase 3: HFI messages (perf/bandwidth tables from cmd-db), power the 3D core, SQE microcode, zap shader, first command |
 
 The touch steps are pins, clocks, pin mux, SPI, chip ID, firmware download, finger reports and iOS gestures, all done. Milestones 14 and 15 were never done on sweet either: they need drivers for hardware Apple's userland knows nothing about, so treat them as research, not scheduled work.
 
