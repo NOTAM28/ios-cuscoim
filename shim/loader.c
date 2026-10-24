@@ -88,15 +88,21 @@ const char *loader_boot(uintptr_t dtb)
 	/* boot v4: ABL concatenates vendor/init_boot ramdisks; find our payload. */
 	{
 		uint64_t a, found = 0;
-		for (a = (rd_start + 7) & ~7UL; a + 8 <= rd_end; a += 8) {
+		for (a = rd_start; a + 8 <= rd_end; a++) {
 			if (magic_ok((const char *)a)) {
 				found = a;
 				break;
 			}
 		}
-		if (!found)
+		if (!found) {
+			uint64_t t = (rd_end - 16) & ~7UL;
+			con_hex2("HEAD", "w0=", *(volatile uint64_t *)rd_start, "w1=", *(volatile uint64_t *)(rd_start + 8));
+			con_hex2("TAIL", "w0=", *(volatile uint64_t *)t, "w1=", *(volatile uint64_t *)(t + 8));
 			return "no SWEETXNU payload";
+		}
 		con_hex2("PAYLOAD", "at=", found, "off=", found - rd_start);
+		if (found & 7)
+			return "payload not 8-aligned";
 		rd_start = found;
 	}
 	const struct payload *p = (const struct payload *)rd_start;
