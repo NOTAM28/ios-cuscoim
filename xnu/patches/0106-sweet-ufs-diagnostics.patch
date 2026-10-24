@@ -1,0 +1,33 @@
+diff --git a/bsd/dev/sweet_ufs.c b/bsd/dev/sweet_ufs.c
+index 002aa8a..e27cc9b 100644
+--- a/bsd/dev/sweet_ufs.c
++++ b/bsd/dev/sweet_ufs.c
+@@ -253,6 +253,11 @@ ufs_scsi(const uint8_t *cdb, unsigned cdb_len, uint32_t len, bool write)
+ 	if (ocs || ucd->resp[0] != 0x21 || ucd->resp[6] || ucd->resp[7]) {
+ 		printf("SWEET UFS: command 0x%02x failed: ocs 0x%x upiu 0x%x response 0x%x status 0x%x\n",
+ 		    cdb[0], ocs, ucd->resp[0], ucd->resp[6], ucd->resp[7]);
++		printf("SWEET UFS: sense key 0x%x asc 0x%02x ascq 0x%02x senselen %u\n",
++		    ucd->resp[36] & 0xf, ucd->resp[46], ucd->resp[47], ucd->resp[32] << 8 | ucd->resp[33]);
++		for (int i = 0; i < 52; i++) {
++			printf("%02x%s", ucd->resp[i], (i % 16 == 15 || i == 51) ? "\n" : " ");
++		}
+ 		return EIO;
+ 	}
+ 	return 0;
+@@ -820,6 +825,16 @@ sweet_ufs_rootdev(dev_t *dev)
+ 	if (!su.ready) {
+ 		int error = sweet_ufs_init();
+ 		if (error) {
++			printf("SWEET UFS: init failed: %d\n", error);
++			if (su.regs) {
++				printf("SWEET UFS: HCE 0x%x HCS 0x%x IS 0x%x RSR 0x%x BA 0x%x DBR 0x%x CAP 0x%x\n",
++				    ufs_rd(REG_HCE), ufs_rd(REG_HCS), ufs_rd(REG_IS), ufs_rd(REG_UTRLRSR),
++				    ufs_rd(REG_UTRLBA), ufs_rd(REG_UTRLDBR), ufs_rd(REG_CAP));
++			}
++			printf("SWEET UFS: holding 45 s so this can be read\n");
++			for (int i = 0; i < 45; i++) {
++				delay(1000000);
++			}
+ 			return error;
+ 		}
+ 	}
