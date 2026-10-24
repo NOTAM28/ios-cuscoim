@@ -4,7 +4,7 @@
 
 This repository is a fork of **ios-sweet**. ios-sweet builds Apple's open-source XNU kernel (xnu-8796, the iOS 16 generation) for the Redmi Note 10 Pro (`sweet`, SM7150), then runs the **unmodified iOS 16.7.16 (20H392) userland of the iPhone X** on it: launchd, the system daemons, backboardd, SpringBoard and the stock apps. On `sweet` it reaches the iOS home screen with touch, buttons, all eight cores and USB networking.
 
-This fork moves that work to `apollo`. As of **2026-10-23** the Mi 10T boots XNU on six cores and reaches **iOS Setup**. Power, volume-up and volume-down work. Touch is the last missing input: SPI to the touch chip works and its ID reads back, and the firmware loader is written but not yet tested. The section [apollo port status](#apollo-port-status) has the details.
+This fork moves that work to `apollo`. As of **2026-10-24** the Mi 10T boots XNU on six cores and reaches **iOS Setup**, and **touch, power, volume-up and volume-down all work**. The kernel loads the touch chip's firmware over SPI at every boot. The section [apollo port status](#apollo-port-status) has the details.
 
 > Experimental bring-up, not a usable phone OS. Apple's security model is mostly switched off, and installing the iOS root **erases Android's `userdata` partition**.
 
@@ -17,7 +17,7 @@ This fork moves that work to `apollo`. As of **2026-10-23** the Mi 10T boots XNU
 | Device tree (ADT) | `tools/mkadt.py`: 1080×2400 framebuffer at `0x9c000000` (35 MiB splash region), virtual timer INTID 27, 4 GiB from `0x1_00000000`, root compatible gains `xiaomi,apollo` / `qcom,sm8250` (`xiaomi,sweet` stays: `SweetPlatformExpert` matches it). `--touch-fw` embeds the touch firmware |
 | CPU | `cpus=6` boots and is noticeably faster than `cpus=1`; `cpus=8` untested (SM8250: 4×A55 + 4×A77) |
 | Buttons | **Working** (0082, 0084): power and volume-down on the PON block, volume-up on PM8150 GPIO6 (PPID `0x0c5`), probed automatically; `sweetvolup=0xPPID` overrides |
-| Touch | **In progress** (0082–0093), Novatek NT36675 on QUP0 SE4 SPI (`spi@990000`), reset GPIO 38, IRQ GPIO 39 (rising edge). Working: the GPIO pins (south TLMM tile), SE4 clocks (GCC votes, DFS level 0 = 19.2 MHz), SPI pin mux (GPIO 8–11 → `qup4`), the SPI engine setup and the chip-ID read (`0e 00 00 72 66 03` = NT36675). Written, **not yet tested**: the firmware download (0093). The chip has no flash, so its firmware (`novatek_nt36675_j3s_fw01.bin`, built into Xiaomi's kernel and published in their kernel source; not in git) must be loaded at every boot |
+| Touch | **Working** (0082–0094, first touch 2026-10-24). Novatek NT36675 on QUP0 SE4 SPI (`spi@990000`), reset GPIO 38, IRQ GPIO 39 (rising edge). The driver finds the pins (south TLMM tile), votes the SE4 clocks in GCC (DFS level 0 = 19.2 MHz), muxes GPIO 8–11 to `qup4`, sets up SPI at 4.8 MHz, reads the chip ID (`0e 00 00 72 66 03`), downloads the firmware with hardware CRC (reset state `0xa0`) and polls the event buffer at `0x22D00`. The chip has no flash: its firmware (`novatek_nt36675_j3s_fw01.bin`, built into Xiaomi's kernel and published in their kernel source; not in git) goes into the ADT with `mkadt.py --touch-fw` |
 | Display | Kernel text and the iOS GUI on the bootloader framebuffer. A bottom band of the Setup page is drawn red (unexplained) |
 | Not ported yet | Display power (0079), USB device mode / Ethernet (0072–0077), battery, the `/memory` size check |
 
@@ -25,16 +25,16 @@ The next steps and the full engineering history are in [`NOTES.md`](NOTES.md).
 
 ## Roadmap
 
-**Overall: 7 of 15 milestones done**
+**Overall: 8 of 15 milestones done**
 
 ```
-[█████████░░░░░░░░░░░]  47 %
+[███████████░░░░░░░░░]  53 %
 ```
 
-**Touch: 5 of 8 steps done**
+**Touch: 7 of 8 steps done**
 
 ```
-[████████████░░░░░░░░]  62 %
+[██████████████████░░]  88 %
 ```
 
 | # | Milestone | State |
@@ -46,8 +46,8 @@ The next steps and the full engineering history are in [`NOTES.md`](NOTES.md).
 | 5 | Six cores (`cpus=6`) | ✅ Done |
 | 6 | Buttons: power, volume-up, volume-down | ✅ Done |
 | 7 | Touch: GPIO pins, SE4 clocks, SPI pin mux, SPI engine, chip ID | ✅ Done |
-| 8 | Touch: firmware download into the NT36675 (0093) | 🔄 Written, testing next |
-| 9 | Touch: finger reports reach iOS; Setup, home screen and gestures usable | ⏳ Next |
+| 8 | Touch: firmware download into the NT36675 (0093) | ✅ Done (2026-10-24) |
+| 9 | Touch: finger reports reach iOS; Setup, home screen and gestures usable | 🔄 Touch reacts; checking accuracy, multi-touch and the home gesture |
 | 10 | All eight cores (`cpus=8`, A55 + A77) | ⏳ Planned |
 | 11 | Display: fix the red band on the Setup page; display off/on with the power button (0079 for SM8250) | ⏳ Planned |
 | 12 | USB device mode, USB Ethernet and the live kernel log (0072–0077 retargeted to SM8250) | ⏳ Planned |
@@ -55,7 +55,7 @@ The next steps and the full engineering history are in [`NOTES.md`](NOTES.md).
 | 14 | Wi-Fi, Bluetooth, audio, cameras, sensors, cellular | 🔭 Long term |
 | 15 | GPU acceleration (Adreno 650) | 🔭 Long term |
 
-The touch steps are pins, clocks, pin mux, SPI and chip ID (all done), then firmware download, finger reports and iOS gestures. Milestones 14 and 15 were never done on sweet either: they need drivers for hardware Apple's userland knows nothing about, so treat them as research, not scheduled work.
+The touch steps are pins, clocks, pin mux, SPI, chip ID, firmware download and finger reports (all done), then iOS gestures. Milestones 14 and 15 were never done on sweet either: they need drivers for hardware Apple's userland knows nothing about, so treat them as research, not scheduled work.
 
 ## What ios-sweet achieved on `sweet` (the baseline)
 
@@ -136,7 +136,7 @@ Needs `aarch64-linux-gnu-gcc` and `mkbootimg`.
 ```sh
 python3 tools/mkadt.py shim/out/apollo.adt --highmem --touch-fw research/apollo-fw/novatek_nt36675_j3s_fw01.bin
 python3 tools/mkpayload.py xnu/out/kernel.development.sweet shim/out/apollo.adt shim/out/payload.bin \
-    --cmdline 'debug=0xc serial=3 cpus=6 keepsyms=1 -enable_kprintf_spam -noprogress rd=ufsroot0 unentitled_ios_sim_launch=1 ignition_level=1 wdt_test=no_user_checkin ufsrw=1 rootrw=1 launchd_unsecure_cache=1 wdt=-1 sweetfb_noconsole=1 sweettouchstage=4 sweettouchdelay=20 sweettouch_debug=1 ufslogsecs=1'
+    --cmdline 'debug=0xc serial=3 cpus=6 keepsyms=1 -enable_kprintf_spam -noprogress rd=ufsroot0 unentitled_ios_sim_launch=1 ignition_level=1 wdt_test=no_user_checkin ufsrw=1 rootrw=1 launchd_unsecure_cache=1 wdt=-1 sweetfb_noconsole=1'
 shim/build.sh ../shim/out/payload.bin      # -> shim/out/shim-boot.img
 ```
 
@@ -160,8 +160,8 @@ Without `--touch-fw`, the kernel boots normally and touch stops before the firmw
 | `wdt=-1 wdt_test=no_user_checkin` | No hardware watchdog |
 | `sweetfb_noconsole=1`, `sweetfb_hz=30` | Stop drawing kernel text over the GUI; panel copy rate |
 | `sweettouch=0`, `sweetkeys=0` | Disable the touch or button driver |
-| `sweettouchstage=1..4` | Touch bring-up depth: 1 reads the pins, 2 reads the SPI engine, 3 pulses reset, 4 sets up clocks, pins and SPI, reads the chip ID, loads the firmware and polls for reports (default 1) |
-| `sweettouchdelay=S`, `sweettouch_debug=1` | Touch start delay in seconds (default 45); log every raw report |
+| `sweettouchstage=1..4` | Touch bring-up depth: 1 reads the pins, 2 reads the SPI engine, 3 pulses reset, 4 sets up clocks, pins and SPI, reads the chip ID, loads the firmware and polls for reports (default 4) |
+| `sweettouchdelay=S`, `sweettouch_debug=1` | Touch start delay in seconds (default 20); log every raw report |
 | `sweettouchfw=0`, `sweettouchmux=0` | Skip the firmware download or the SPI pin mux |
 | `sweettouchse=`, `sweettouchrst=`, `sweettouchirq=`, `sweettouchtlmm=`, `sweettouchdiv=`, `sweettouchbuf=` | Override the SPI engine address, reset/IRQ GPIOs, TLMM tile, SPI clock divider (default 4 = 4.8 MHz) and event buffer address |
 | `ufslogsecs=N` | Persistent-log flush interval in seconds (use 1 when chasing hangs) |
@@ -192,7 +192,7 @@ The driver lines start with `SWEET ...`, and crash reports start with `CRASH nam
 | Path | What |
 | --- | --- |
 | `shim/` | Bare-metal boot shim (C + asm) packed as an Android boot.img v2 |
-| `xnu/patches/` | The XNU patch series (0001–0093, applied in order by CI) plus staging scripts for libpthread, HFS and BearSSL |
+| `xnu/patches/` | The XNU patch series (0001–0094, applied in order by CI) plus staging scripts for libpthread, HFS and BearSSL |
 | `.github/workflows/xnu.yml` | `validate` (Ubuntu, seconds), then the kernel `build` (macOS) |
 | `tools/validate-repo.py` | Patch-series and script checks (numbering, hunk headers, replay of series-created files) |
 | `tools/mkadt.py` | Apple Device Tree from the board's MMIO layout and the iPhone X identity |
@@ -239,6 +239,7 @@ Not in git: partition backups, live device trees, recovery images, Apple firmwar
 | **0088–0089** | **apollo:** touch driver from the live device tree and Xiaomi's source: SE4 `0x990000`, GPIO 38/39, NT36xxx SPI framing, chip-ID read, event buffer `0x22D00` |
 | **0090–0092** | **apollo:** SE4 clock votes in GCC (hardware-gated branches accepted); SPI pin mux GPIO 8–11 → `qup4` |
 | **0093** | **apollo:** NT36675 firmware host download with hardware CRC (firmware from the ADT) |
+| **0094** | **apollo:** touch on by default (stage 4, 20 s delay); no polling without running firmware |
 
 ## Key hardware facts
 
