@@ -165,7 +165,7 @@ Without `--touch-fw`, the kernel boots normally and touch stops before the firmw
 | `sweettouchfw=0`, `sweettouchmux=0` | Skip the firmware download or the SPI pin mux |
 | `sweettouchse=`, `sweettouchrst=`, `sweettouchirq=`, `sweettouchtlmm=`, `sweettouchdiv=`, `sweettouchbuf=` | Override the SPI engine address, reset/IRQ GPIOs, TLMM tile, SPI clock divider (default 4 = 4.8 MHz) and event buffer address |
 | `sweetcpufreq=N` | CPU clock: 0 leaves the firmware's speed, 1 (default) the highest non-boost level per cluster, N > 1 the highest level at or below N MHz |
-| `sweetgpu=1..10`, `sweetgpukeep=1` | Adreno 650 bring-up (off by default): 1 reads the GPU clocks in GCC, 2 switches the GPU config-bus clock on if needed, 3 reads the GPU clock controller, 4 powers the CX half on, 5 starts the GMU clocks (200 MHz), 6 reads the GMU, 7 reads its RPMh channel, 8–9 read the GPU's SMMU, 10 tests the GMU's memory. CX is collapsed again afterwards unless `sweetgpukeep=1`. Runs `sweetgpudelay` seconds (default 15) after the drivers start |
+| `sweetgpu=1..14`, `sweetgpukeep=1` | Adreno 650 bring-up (off by default): 1 reads the GPU clocks in GCC, 2 switches the GPU config-bus clock on if needed, 3 reads the GPU clock controller, 4 powers the CX half on, 5 starts the GMU clocks (200 MHz), 6 reads the GMU, 7 reads its RPMh channel, 8–9 read the GPU's SMMU, 10 tests the GMU's memory, 11 maps memory for the GMU through the SMMU, 12 loads `a650_gmu.bin`, 13 starts the GMU, 14 starts its HFI queues (11+ need `mkadt.py --gmu-fw`). CX is collapsed again afterwards unless `sweetgpukeep=1`. Runs `sweetgpudelay` seconds (default 15) after the drivers start |
 | `ufslogsecs=N` | Persistent-log flush interval in seconds (use 1 when chasing hangs) |
 | `sweetvolup=0xPPID` | PMIC GPIO peripheral for volume-up (SID << 8 \| peripheral) |
 | `sweetusb=2` | USB device mode, CDC-ECM Ethernet and the live log |
@@ -194,7 +194,7 @@ The driver lines start with `SWEET ...`, and crash reports start with `CRASH nam
 | Path | What |
 | --- | --- |
 | `shim/` | Bare-metal boot shim (C + asm) packed as an Android boot.img v2 |
-| `xnu/patches/` | The XNU patch series (0001–0099, applied in order by CI) plus staging scripts for libpthread, HFS and BearSSL |
+| `xnu/patches/` | The XNU patch series (0001–0100, applied in order by CI) plus staging scripts for libpthread, HFS and BearSSL |
 | `.github/workflows/xnu.yml` | `validate` (Ubuntu, seconds), then the kernel `build` (macOS) |
 | `tools/validate-repo.py` | Patch-series and script checks (numbering, hunk headers, replay of series-created files) |
 | `tools/mkadt.py` | Apple Device Tree from the board's MMIO layout and the iPhone X identity |
@@ -205,6 +205,7 @@ The driver lines start with `SWEET ...`, and crash reports start with `CRASH nam
 | `tools/xnu-cc.py` | Local single-file compile check from a CI log |
 | `tools/qemu-sweet.py` | QEMU test boots with framebuffer text decoding |
 | `tools/lpextract.py` | Extract one partition (e.g. `vendor`) from a raw Android `super` image |
+| `tools/gmu-fw-info.py` | List the blocks of an Adreno GMU firmware file |
 | `tools/nvt-fw-find.py` | Find and extract NT36xxx touch firmware built into a kernel `Image` |
 | `tools/adt.py`, `remotezip.py`, `unpack_bootv2.py`, `sparsediff.py`, `check-exports.py` | Helpers |
 | `site/` | The project website |
@@ -247,6 +248,7 @@ Not in git: partition backups, live device trees, recovery images, Apple firmwar
 | **0097** | **apollo:** Adreno 650 steps 4–6: CX power on, GMU clocks, first GMU register reads (GPU block alive); raw frequency-table dump |
 | **0098** | **apollo:** CPU clock with the EPSS layout apollo actually has; GPU steps 7–10 (RSCC, SMMU, GMU memory) |
 | **0099** | **apollo:** GPU register access as single `ldr`/`str` (the hypervisor emulates the SMMU); probe on its own thread after `sweetgpudelay` s |
+| **0100** | **apollo:** GMU boot, steps 11–14: SMMU page tables and context, `a650_gmu.bin` load, RSCC/PDC, GMU start, HFI queues |
 
 ## Key hardware facts
 
