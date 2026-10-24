@@ -1,0 +1,16 @@
+diff --git a/bsd/dev/sweet_gpu.c b/bsd/dev/sweet_gpu.c
+index a21f78d..ff25d3f 100644
+--- a/bsd/dev/sweet_gpu.c
++++ b/bsd/dev/sweet_gpu.c
+@@ -1605,6 +1605,11 @@ void
+ sweet_gpu_init(void)
+ {
+ 	thread_t thread;
++	unsigned gpu_unlock = 0;
++	/* cuscoi: the GPU code targets Adreno 650 (apollo); stay off unless gpuunlock=1 */
++	(void)PE_parse_boot_argn("gpuunlock", &gpu_unlock, sizeof(gpu_unlock));
++	if (!gpu_unlock)
++		return;
+ 	(void)PE_parse_boot_argn("sweetgpu", &gpu_steps, sizeof(gpu_steps));
+ 	if (!gpu_steps)
+ 		return;
