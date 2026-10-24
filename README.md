@@ -25,16 +25,16 @@ The next steps and the full engineering history are in [`NOTES.md`](NOTES.md).
 
 ## Roadmap
 
-**Overall: 8 of 15 milestones done**
+**Overall: 9 of 15 milestones done**
 
 ```
-[███████████░░░░░░░░░]  53 %
+[████████████░░░░░░░░]  60 %
 ```
 
-**Touch: 7 of 8 steps done**
+**Touch: 8 of 8 steps done**
 
 ```
-[██████████████████░░]  88 %
+[████████████████████]  100 %
 ```
 
 | # | Milestone | State |
@@ -47,15 +47,15 @@ The next steps and the full engineering history are in [`NOTES.md`](NOTES.md).
 | 6 | Buttons: power, volume-up, volume-down | ✅ Done |
 | 7 | Touch: GPIO pins, SE4 clocks, SPI pin mux, SPI engine, chip ID | ✅ Done |
 | 8 | Touch: firmware download into the NT36675 (0093) | ✅ Done (2026-10-24) |
-| 9 | Touch: finger reports reach iOS; Setup, home screen and gestures usable | 🔄 Touch reacts; checking accuracy, multi-touch and the home gesture |
-| 10 | All eight cores (`cpus=8`, A55 + A77) | ⏳ Planned |
+| 9 | Touch: finger reports reach iOS; Setup, home screen and gestures usable | ✅ Done (2026-10-24) |
+| 10 | CPU speed: clock up via the OSM tables (0095), then all eight cores (`cpus=8`, A55 + A77) | 🔄 0095 testing next |
 | 11 | Display: fix the red band on the Setup page; display off/on with the power button (0079 for SM8250) | ⏳ Planned |
 | 12 | USB device mode, USB Ethernet and the live kernel log (0072–0077 retargeted to SM8250) | ⏳ Planned |
 | 13 | Battery and charging readout | ⏳ Planned |
 | 14 | Wi-Fi, Bluetooth, audio, cameras, sensors, cellular | 🔭 Long term |
 | 15 | GPU acceleration (Adreno 650) | 🔭 Long term |
 
-The touch steps are pins, clocks, pin mux, SPI, chip ID, firmware download and finger reports (all done), then iOS gestures. Milestones 14 and 15 were never done on sweet either: they need drivers for hardware Apple's userland knows nothing about, so treat them as research, not scheduled work.
+The touch steps are pins, clocks, pin mux, SPI, chip ID, firmware download, finger reports and iOS gestures, all done. Milestones 14 and 15 were never done on sweet either: they need drivers for hardware Apple's userland knows nothing about, so treat them as research, not scheduled work.
 
 ## What ios-sweet achieved on `sweet` (the baseline)
 
