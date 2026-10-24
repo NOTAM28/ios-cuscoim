@@ -165,7 +165,7 @@ Without `--touch-fw`, the kernel boots normally and touch stops before the firmw
 | `sweettouchfw=0`, `sweettouchmux=0` | Skip the firmware download or the SPI pin mux |
 | `sweettouchse=`, `sweettouchrst=`, `sweettouchirq=`, `sweettouchtlmm=`, `sweettouchdiv=`, `sweettouchbuf=` | Override the SPI engine address, reset/IRQ GPIOs, TLMM tile, SPI clock divider (default 4 = 4.8 MHz) and event buffer address |
 | `sweetcpufreq=N` | CPU clock: 0 leaves the firmware's speed, 1 (default) the highest non-boost level per cluster, N > 1 the highest level at or below N MHz |
-| `sweetgpu=1..10`, `sweetgpukeep=1` | Adreno 650 bring-up (off by default): 1 reads the GPU clocks in GCC, 2 switches the GPU config-bus clock on if needed, 3 reads the GPU clock controller, 4 powers the CX half on, 5 starts the GMU clocks (200 MHz), 6 reads the GMU, 7 reads its RPMh channel, 8–9 read the GPU's SMMU, 10 tests the GMU's memory. CX is collapsed again afterwards unless `sweetgpukeep=1` |
+| `sweetgpu=1..10`, `sweetgpukeep=1` | Adreno 650 bring-up (off by default): 1 reads the GPU clocks in GCC, 2 switches the GPU config-bus clock on if needed, 3 reads the GPU clock controller, 4 powers the CX half on, 5 starts the GMU clocks (200 MHz), 6 reads the GMU, 7 reads its RPMh channel, 8–9 read the GPU's SMMU, 10 tests the GMU's memory. CX is collapsed again afterwards unless `sweetgpukeep=1`. Runs `sweetgpudelay` seconds (default 15) after the drivers start |
 | `ufslogsecs=N` | Persistent-log flush interval in seconds (use 1 when chasing hangs) |
 | `sweetvolup=0xPPID` | PMIC GPIO peripheral for volume-up (SID << 8 \| peripheral) |
 | `sweetusb=2` | USB device mode, CDC-ECM Ethernet and the live log |
@@ -194,7 +194,7 @@ The driver lines start with `SWEET ...`, and crash reports start with `CRASH nam
 | Path | What |
 | --- | --- |
 | `shim/` | Bare-metal boot shim (C + asm) packed as an Android boot.img v2 |
-| `xnu/patches/` | The XNU patch series (0001–0098, applied in order by CI) plus staging scripts for libpthread, HFS and BearSSL |
+| `xnu/patches/` | The XNU patch series (0001–0099, applied in order by CI) plus staging scripts for libpthread, HFS and BearSSL |
 | `.github/workflows/xnu.yml` | `validate` (Ubuntu, seconds), then the kernel `build` (macOS) |
 | `tools/validate-repo.py` | Patch-series and script checks (numbering, hunk headers, replay of series-created files) |
 | `tools/mkadt.py` | Apple Device Tree from the board's MMIO layout and the iPhone X identity |
@@ -246,6 +246,7 @@ Not in git: partition backups, live device trees, recovery images, Apple firmwar
 | **0096** | **apollo:** Adreno 650 phase 1, staged read-only probe of the GPU clocks and power (`sweet_gpu.c`, `sweetgpu=N`) |
 | **0097** | **apollo:** Adreno 650 steps 4–6: CX power on, GMU clocks, first GMU register reads (GPU block alive); raw frequency-table dump |
 | **0098** | **apollo:** CPU clock with the EPSS layout apollo actually has; GPU steps 7–10 (RSCC, SMMU, GMU memory) |
+| **0099** | **apollo:** GPU register access as single `ldr`/`str` (the hypervisor emulates the SMMU); probe on its own thread after `sweetgpudelay` s |
 
 ## Key hardware facts
 
